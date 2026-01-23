@@ -1,0 +1,634 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1978C6AB5A14C658851DC2D /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 3BCF73BAEA9B49C6987D0C54 /* GRDB */; };
+		A22369972F2417C8000F40F4 /* CodeEditLanguages in Frameworks */ = {isa = PBXBuildFile; productRef = A22369962F2417C8000F40F4 /* CodeEditLanguages */; };
+		A223699A2F241957000F40F4 /* Collections in Frameworks */ = {isa = PBXBuildFile; productRef = A22369992F241957000F40F4 /* Collections */; };
+		A223699C2F241957000F40F4 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = A223699B2F241957000F40F4 /* DequeModule */; };
+		A28176212EF9AF1700E31195 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = A28176202EF9AF1700E31195 /* DifferenceKit */; };
+		A281762E2EF9D89100E31195 /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = A281762D2EF9D89100E31195 /* SwiftTreeSitter */; };
+		A28176302EF9D89100E31195 /* SwiftTreeSitterLayer in Frameworks */ = {isa = PBXBuildFile; productRef = A281762F2EF9D89100E31195 /* SwiftTreeSitterLayer */; };
+		A2B54F892EF4C73100691E44 /* gitdiff in Frameworks */ = {isa = PBXBuildFile; productRef = A2B54F882EF4C73100691E44 /* gitdiff */; };
+		A2B54FF62EF5E3C700691E44 /* SwiftGitX in Frameworks */ = {isa = PBXBuildFile; productRef = A2B54FF52EF5E3C700691E44 /* SwiftGitX */; };
+		A2B54FF92EF5E8FE00691E44 /* libgit2 in Frameworks */ = {isa = PBXBuildFile; productRef = A2B54FF82EF5E8FE00691E44 /* libgit2 */; };
+		A2B550002EF64D1E00691E44 /* HotKey in Frameworks */ = {isa = PBXBuildFile; productRef = A2B54FFF2EF64D1E00691E44 /* HotKey */; };
+		A2B79B5D2F0831C80002A6C7 /* Devicon in Frameworks */ = {isa = PBXBuildFile; productRef = A2B79B5C2F0831C80002A6C7 /* Devicon */; };
+		A2ED59C82F04627400812F70 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = A2ED59C72F04627400812F70 /* FirebaseAI */; };
+		A2ED59CA2F04627400812F70 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = A2ED59C92F04627400812F70 /* FirebaseAppCheck */; };
+		A2ED5A7B2F04F02300812F70 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = A2ED5A7A2F04F02300812F70 /* Lottie */; };
+		MARKDOWN012EFC000000000001 /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = MARKDOWN012EFC000000000000 /* Markdown */; };
+		SPARKLE0012EFC000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = SPARKLE0012EFC000000000000 /* Sparkle */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A21CA5DC2F0765BB00218474 /* PencilKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PencilKit.framework; path = System/Library/PrivateFrameworks/PencilKit.framework; sourceTree = SDKROOT; };
+		A21CA5E12F07668100218474 /* libswiftPencilKit.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libswiftPencilKit.tbd; path = usr/lib/swift/libswiftPencilKit.tbd; sourceTree = SDKROOT; };
+		A2476F1F2DA770E800C94D8B /* jules.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = jules.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A2476F2C2DA770EA00C94D8B /* Exceptions for "jules" folder in "jules" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A2476F1E2DA770E800C94D8B /* jules */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A2476F212DA770E800C94D8B /* jules */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A2476F2C2DA770EA00C94D8B /* Exceptions for "jules" folder in "jules" target */,
+			);
+			path = jules;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A2476F1C2DA770E800C94D8B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A28176212EF9AF1700E31195 /* DifferenceKit in Frameworks */,
+				A2B550002EF64D1E00691E44 /* HotKey in Frameworks */,
+				A281762E2EF9D89100E31195 /* SwiftTreeSitter in Frameworks */,
+				A2B54FF92EF5E8FE00691E44 /* libgit2 in Frameworks */,
+				A2B54F892EF4C73100691E44 /* gitdiff in Frameworks */,
+				A223699C2F241957000F40F4 /* DequeModule in Frameworks */,
+				A2ED5A7B2F04F02300812F70 /* Lottie in Frameworks */,
+				A2ED59C82F04627400812F70 /* FirebaseAI in Frameworks */,
+				A2B79B5D2F0831C80002A6C7 /* Devicon in Frameworks */,
+				A28176302EF9D89100E31195 /* SwiftTreeSitterLayer in Frameworks */,
+				A22369972F2417C8000F40F4 /* CodeEditLanguages in Frameworks */,
+				A2B54FF62EF5E3C700691E44 /* SwiftGitX in Frameworks */,
+				A1978C6AB5A14C658851DC2D /* GRDB in Frameworks */,
+				SPARKLE0012EFC000000000001 /* Sparkle in Frameworks */,
+				A2ED59CA2F04627400812F70 /* FirebaseAppCheck in Frameworks */,
+				MARKDOWN012EFC000000000001 /* Markdown in Frameworks */,
+				A223699A2F241957000F40F4 /* Collections in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A2476F162DA770E800C94D8B = {
+			isa = PBXGroup;
+			children = (
+				A2476F212DA770E800C94D8B /* jules */,
+				A2B54F8A2EF4C77300691E44 /* Frameworks */,
+				A2476F202DA770E800C94D8B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A2476F202DA770E800C94D8B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A2476F1F2DA770E800C94D8B /* jules.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A2B54F8A2EF4C77300691E44 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A21CA5E12F07668100218474 /* libswiftPencilKit.tbd */,
+				A21CA5DC2F0765BB00218474 /* PencilKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A2476F1E2DA770E800C94D8B /* jules */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A2476F2D2DA770EA00C94D8B /* Build configuration list for PBXNativeTarget "jules" */;
+			buildPhases = (
+				A2476F1B2DA770E800C94D8B /* Sources */,
+				A2476F1C2DA770E800C94D8B /* Frameworks */,
+				A2476F1D2DA770E800C94D8B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A2476F212DA770E800C94D8B /* jules */,
+			);
+			name = jules;
+			packageProductDependencies = (
+				A2B54F882EF4C73100691E44 /* gitdiff */,
+				A2B54FF52EF5E3C700691E44 /* SwiftGitX */,
+				A2B54FF82EF5E8FE00691E44 /* libgit2 */,
+				A2B54FFF2EF64D1E00691E44 /* HotKey */,
+				3BCF73BAEA9B49C6987D0C54 /* GRDB */,
+				A28176202EF9AF1700E31195 /* DifferenceKit */,
+				A281762D2EF9D89100E31195 /* SwiftTreeSitter */,
+				A281762F2EF9D89100E31195 /* SwiftTreeSitterLayer */,
+				SPARKLE0012EFC000000000000 /* Sparkle */,
+				MARKDOWN012EFC000000000000 /* Markdown */,
+				A2ED59C72F04627400812F70 /* FirebaseAI */,
+				A2ED59C92F04627400812F70 /* FirebaseAppCheck */,
+				A2ED5A7A2F04F02300812F70 /* Lottie */,
+				A2B79B5C2F0831C80002A6C7 /* Devicon */,
+				A22369962F2417C8000F40F4 /* CodeEditLanguages */,
+				A22369992F241957000F40F4 /* Collections */,
+				A223699B2F241957000F40F4 /* DequeModule */,
+			);
+			productName = jules;
+			productReference = A2476F1F2DA770E800C94D8B /* jules.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A2476F172DA770E800C94D8B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1630;
+				LastUpgradeCheck = 1630;
+				TargetAttributes = {
+					A2476F1E2DA770E800C94D8B = {
+						CreatedOnToolsVersion = 16.3;
+					};
+				};
+			};
+			buildConfigurationList = A2476F1A2DA770E800C94D8B /* Build configuration list for PBXProject "jules" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A2476F162DA770E800C94D8B;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A2B54F872EF4C73100691E44 /* XCRemoteSwiftPackageReference "gitdiff" */,
+				A2B54FF42EF5E3C700691E44 /* XCRemoteSwiftPackageReference "SwiftGitX" */,
+				A2B54FF72EF5E8FE00691E44 /* XCRemoteSwiftPackageReference "libgit2" */,
+				A2B54FFE2EF64D1E00691E44 /* XCRemoteSwiftPackageReference "HotKey" */,
+				DBFA08EA175F4C998A52F118 /* XCRemoteSwiftPackageReference "GRDB" */,
+				A281761F2EF9AF1700E31195 /* XCRemoteSwiftPackageReference "DifferenceKit" */,
+				A281762C2EF9D89100E31195 /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */,
+				SPARKLE0012EFC000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				MARKDOWN012EFC000000000002 /* XCRemoteSwiftPackageReference "swift-markdown" */,
+				A2ED59C62F04627400812F70 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				A2ED5A792F04F02300812F70 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+				A2B79B5B2F0831C80002A6C7 /* XCRemoteSwiftPackageReference "devicons-swift" */,
+				A22369952F2417C8000F40F4 /* XCRemoteSwiftPackageReference "CodeEditLanguages" */,
+				A22369982F241957000F40F4 /* XCRemoteSwiftPackageReference "swift-collections" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A2476F202DA770E800C94D8B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A2476F1E2DA770E800C94D8B /* jules */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A2476F1D2DA770E800C94D8B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A2476F1B2DA770E800C94D8B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A2476F2E2DA770EA00C94D8B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = jules/jules.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = jules/Info.plist;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = FUNRUN.jules;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+			};
+			name = Debug;
+		};
+		A2476F2F2DA770EA00C94D8B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = jules/jules.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = jules/Info.plist;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.jules;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+			};
+			name = Release;
+		};
+		A2476F302DA770EA00C94D8B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.3;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A2476F312DA770EA00C94D8B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.3;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A2476F1A2DA770E800C94D8B /* Build configuration list for PBXProject "jules" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A2476F302DA770EA00C94D8B /* Debug */,
+				A2476F312DA770EA00C94D8B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A2476F2D2DA770EA00C94D8B /* Build configuration list for PBXNativeTarget "jules" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A2476F2E2DA770EA00C94D8B /* Debug */,
+				A2476F2F2DA770EA00C94D8B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A22369952F2417C8000F40F4 /* XCRemoteSwiftPackageReference "CodeEditLanguages" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/CodeEditApp/CodeEditLanguages";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.21;
+			};
+		};
+		A22369982F241957000F40F4 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-collections.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
+			};
+		};
+		A281761F2EF9AF1700E31195 /* XCRemoteSwiftPackageReference "DifferenceKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ra1028/DifferenceKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
+			};
+		};
+		A281762C2EF9D89100E31195 /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ChimeHQ/SwiftTreeSitter.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.25.0;
+			};
+		};
+		A2B54F872EF4C73100691E44 /* XCRemoteSwiftPackageReference "gitdiff" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tornikegomareli/gitdiff";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.0.7;
+			};
+		};
+		A2B54FF42EF5E3C700691E44 /* XCRemoteSwiftPackageReference "SwiftGitX" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ibrahimcetin/SwiftGitX";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.4.0;
+			};
+		};
+		A2B54FF72EF5E8FE00691E44 /* XCRemoteSwiftPackageReference "libgit2" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ibrahimcetin/libgit2.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.9.2;
+			};
+		};
+		A2B54FFE2EF64D1E00691E44 /* XCRemoteSwiftPackageReference "HotKey" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/soffes/HotKey";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		A2B79B5B2F0831C80002A6C7 /* XCRemoteSwiftPackageReference "devicons-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kelly/devicons-swift";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		A2ED59C62F04627400812F70 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.7.0;
+			};
+		};
+		A2ED5A792F04F02300812F70 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.2;
+			};
+		};
+		DBFA08EA175F4C998A52F118 /* XCRemoteSwiftPackageReference "GRDB" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/groue/GRDB.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.0.0;
+			};
+		};
+		MARKDOWN012EFC000000000002 /* XCRemoteSwiftPackageReference "swift-markdown" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-markdown";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.5.0;
+			};
+		};
+		SPARKLE0012EFC000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3BCF73BAEA9B49C6987D0C54 /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DBFA08EA175F4C998A52F118 /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = GRDB;
+		};
+		A22369962F2417C8000F40F4 /* CodeEditLanguages */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A22369952F2417C8000F40F4 /* XCRemoteSwiftPackageReference "CodeEditLanguages" */;
+			productName = CodeEditLanguages;
+		};
+		A22369992F241957000F40F4 /* Collections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A22369982F241957000F40F4 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = Collections;
+		};
+		A223699B2F241957000F40F4 /* DequeModule */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A22369982F241957000F40F4 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = DequeModule;
+		};
+		A28176202EF9AF1700E31195 /* DifferenceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A281761F2EF9AF1700E31195 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
+			productName = DifferenceKit;
+		};
+		A281762D2EF9D89100E31195 /* SwiftTreeSitter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A281762C2EF9D89100E31195 /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */;
+			productName = SwiftTreeSitter;
+		};
+		A281762F2EF9D89100E31195 /* SwiftTreeSitterLayer */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A281762C2EF9D89100E31195 /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */;
+			productName = SwiftTreeSitterLayer;
+		};
+		A2B54F882EF4C73100691E44 /* gitdiff */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2B54F872EF4C73100691E44 /* XCRemoteSwiftPackageReference "gitdiff" */;
+			productName = gitdiff;
+		};
+		A2B54FF52EF5E3C700691E44 /* SwiftGitX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2B54FF42EF5E3C700691E44 /* XCRemoteSwiftPackageReference "SwiftGitX" */;
+			productName = SwiftGitX;
+		};
+		A2B54FF82EF5E8FE00691E44 /* libgit2 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2B54FF72EF5E8FE00691E44 /* XCRemoteSwiftPackageReference "libgit2" */;
+			productName = libgit2;
+		};
+		A2B54FFF2EF64D1E00691E44 /* HotKey */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2B54FFE2EF64D1E00691E44 /* XCRemoteSwiftPackageReference "HotKey" */;
+			productName = HotKey;
+		};
+		A2B79B5C2F0831C80002A6C7 /* Devicon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2B79B5B2F0831C80002A6C7 /* XCRemoteSwiftPackageReference "devicons-swift" */;
+			productName = Devicon;
+		};
+		A2ED59C72F04627400812F70 /* FirebaseAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2ED59C62F04627400812F70 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAI;
+		};
+		A2ED59C92F04627400812F70 /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2ED59C62F04627400812F70 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
+		};
+		A2ED5A7A2F04F02300812F70 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2ED5A792F04F02300812F70 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+		MARKDOWN012EFC000000000000 /* Markdown */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = MARKDOWN012EFC000000000002 /* XCRemoteSwiftPackageReference "swift-markdown" */;
+			productName = Markdown;
+		};
+		SPARKLE0012EFC000000000000 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPARKLE0012EFC000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A2476F172DA770E800C94D8B /* Project object */;
+}
