@@ -23,7 +23,7 @@ A native macOS menu bar application for interacting with the Jules AI coding ass
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/jules-osx.git
+   git clone https://github.com/simpsoka/jules-osx.git
    cd jules-osx
    ```
 
