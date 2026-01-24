@@ -2,6 +2,9 @@
 
 A native macOS menu bar application for interacting with the Jules AI coding assistant API.
 
+<img width="2416" height="1616" alt="jules-desktop" src="https://github.com/user-attachments/assets/b73d897e-845b-4aba-9a2e-7b268a8134d1" />
+
+
 ## Features
 
 - **Menu Bar Integration**: Quick access from your menu bar or centered floating panel
