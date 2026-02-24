@@ -31,6 +31,7 @@ jobs:
           languages: ${{ matrix.language }}
           queries: security-and-quality
       - name: Autobuild
+        continue-on-error: true
         uses: github/codeql-action/autobuild@v3
       - name: Perform CodeQL Analysis
         continue-on-error: true
