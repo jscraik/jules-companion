@@ -131,7 +131,7 @@ struct ActivityProgressView: View {
         .onDisappear {
             stopAllTimers()
         }
-        .onChange(of: session.state) { newState in
+        .onValueChange(of: session.state) { newState in
             // Reset animations when state changes
             if newState != lastState {
                 lastState = newState

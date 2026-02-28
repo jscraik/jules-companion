@@ -55,7 +55,7 @@ final class FrameResources {
     var instanceCount: Int = 0
     var rectCount: Int = 0
 
-    init(device: MTLDevice) {
+    init?(device: MTLDevice) {
         // Phase 5: Use storageModeShared for UMA optimization
         // This allows CPU writes and GPU reads without explicit blits
         let instanceSize = FrameResources.maxInstances * MemoryLayout<TripleBufferInstanceData>.stride
@@ -65,7 +65,7 @@ final class FrameResources {
         guard let instBuf = device.makeBuffer(length: instanceSize, options: .storageModeShared),
               let rectBuf = device.makeBuffer(length: rectSize, options: .storageModeShared),
               let uniformBuf = device.makeBuffer(length: uniformSize, options: .storageModeShared) else {
-            fatalError("Failed to create frame resource buffers")
+            return nil
         }
 
         self.instanceBuffer = instBuf
@@ -191,11 +191,13 @@ final class TripleBufferedRenderer: NSObject {
         }
 
         // Create triple-buffered frame resources
-        self.frameResources = [
-            FrameResources(device: device),
-            FrameResources(device: device),
-            FrameResources(device: device)
-        ]
+        guard let frame0 = FrameResources(device: device),
+              let frame1 = FrameResources(device: device),
+              let frame2 = FrameResources(device: device) else {
+            print("TripleBufferedRenderer: Failed to create frame resource buffers")
+            return nil
+        }
+        self.frameResources = [frame0, frame1, frame2]
 
         super.init()
 

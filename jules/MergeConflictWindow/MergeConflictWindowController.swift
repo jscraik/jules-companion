@@ -38,7 +38,7 @@ class MergeConflictWindowController: NSWindowController, NSWindowDelegate, NSToo
     }
 
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        return nil
     }
 
     // MARK: - Tahoe Window Setup (macOS 26+)
@@ -203,8 +203,10 @@ class MergeConflictWindowController: NSWindowController, NSWindowDelegate, NSToo
             let toolbarItem = NSToolbarItem(itemIdentifier: itemIdentifier)
             if let hostingView = toolbarHostingView {
                 toolbarItem.view = hostingView
-                toolbarItem.minSize = NSSize(width: 200, height: MergeConflictToolbarView.toolbarHeight)
-                toolbarItem.maxSize = NSSize(width: 10000, height: MergeConflictToolbarView.toolbarHeight)
+                if #unavailable(macOS 12.0) {
+                    toolbarItem.minSize = NSSize(width: 200, height: MergeConflictToolbarView.toolbarHeight)
+                    toolbarItem.maxSize = NSSize(width: 10000, height: MergeConflictToolbarView.toolbarHeight)
+                }
             }
             return toolbarItem
         }

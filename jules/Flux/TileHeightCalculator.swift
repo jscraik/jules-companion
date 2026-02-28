@@ -210,7 +210,7 @@ final class TileHeightCalculator {
 
         // Pre-allocate arrays
         var lineOffsets = [CGFloat](repeating: 0, count: contentLineCount)
-        var lineHeights = [CGFloat](repeating: lineHeight, count: contentLineCount)
+        let lineHeights = [CGFloat](repeating: lineHeight, count: contentLineCount)
 
         // Compute cumulative offsets
         var currentY: CGFloat = 0

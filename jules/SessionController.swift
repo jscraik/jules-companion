@@ -505,7 +505,7 @@ class SessionController: NSWindowController, NSWindowDelegate, NSToolbarDelegate
     }
 
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        return nil
     }
 
     private func setupToolbarView() {
@@ -559,11 +559,10 @@ class SessionController: NSWindowController, NSWindowDelegate, NSToolbarDelegate
             let toolbarItem = NSToolbarItem(itemIdentifier: itemIdentifier)
             if let hostingView = toolbarHostingView {
                 toolbarItem.view = hostingView
-                // Note: minSize/maxSize are deprecated but still required for custom toolbar views
-                // that need to expand to fill available space. The replacement (constraints) doesn't
-                // work well with NSToolbar's layout system.
-                 toolbarItem.minSize = NSSize(width: 200, height: CustomToolbarView.toolbarHeight)
-                 toolbarItem.maxSize = NSSize(width: 10000, height: CustomToolbarView.toolbarHeight)
+                if #unavailable(macOS 12.0) {
+                    toolbarItem.minSize = NSSize(width: 200, height: CustomToolbarView.toolbarHeight)
+                    toolbarItem.maxSize = NSSize(width: 10000, height: CustomToolbarView.toolbarHeight)
+                }
             }
             return toolbarItem
         }
@@ -689,39 +688,48 @@ class SessionController: NSWindowController, NSWindowDelegate, NSToolbarDelegate
         // At the end of loaded sessions - check if more are available
         if dataManager.hasMoreSessions && !dataManager.isLoadingMoreForPagination {
             // Load more sessions and then navigate
-            loadMoreSessionsAndNavigate(fromIndex: currentIndex, currentSessionId: currentSessionId)
+            loadMoreSessionsAndNavigate(currentSessionId: currentSessionId)
         }
     }
 
     /// Loads more sessions from the API and navigates to the next one after loading
-    private func loadMoreSessionsAndNavigate(fromIndex currentIndex: Int, currentSessionId: String) {
+    private func loadMoreSessionsAndNavigate(currentSessionId: String) {
         // Cancel any existing pagination task to prevent stale navigation
         paginationTask?.cancel()
 
         dataManager.isLoadingMoreForPagination = true
+        let dataManager = self.dataManager
 
-        paginationTask = Task {
-            await dataManager.loadMoreData()
-
-            // Check if task was cancelled (user navigated away or created new session)
-            guard !Task.isCancelled else {
+        paginationTask = Task { [weak self, dataManager] in
+            guard let self else {
                 await MainActor.run {
                     dataManager.isLoadingMoreForPagination = false
                 }
                 return
             }
 
+            await self.dataManager.loadMoreData()
+
+            // Check if task was cancelled (user navigated away or created new session)
+            guard !Task.isCancelled else {
+                await MainActor.run {
+                    self.dataManager.isLoadingMoreForPagination = false
+                    self.paginationTask = nil
+                }
+                return
+            }
+
             await MainActor.run {
-                dataManager.isLoadingMoreForPagination = false
+                self.dataManager.isLoadingMoreForPagination = false
 
                 // Verify the user is still viewing the same session before auto-navigating
                 // This prevents navigating away from a newly created session
-                guard selectionState.selectedSessionId == currentSessionId else {
+                guard self.selectionState.selectedSessionId == currentSessionId else {
                     return
                 }
 
                 // After loading, find the current session's NEW index (may have shifted)
-                let sessions = dataManager.recentSessions
+                let sessions = self.dataManager.recentSessions
                 guard let newCurrentIndex = sessions.firstIndex(where: { $0.id == currentSessionId }) else {
                     return
                 }
@@ -731,10 +739,12 @@ class SessionController: NSWindowController, NSWindowDelegate, NSToolbarDelegate
                     let nextSession = sessions[newCurrentIndex + 1]
 
                     // PERFORMANCE: Pre-warm adjacent sessions for smooth pagination
-                    preloadAdjacentSessionDiffs(around: newCurrentIndex + 1)
+                    self.preloadAdjacentSessionDiffs(around: newCurrentIndex + 1)
 
-                    update(session: nextSession)
+                    self.update(session: nextSession)
                 }
+
+                self.paginationTask = nil
             }
         }
     }
@@ -792,7 +802,7 @@ class SessionController: NSWindowController, NSWindowDelegate, NSToolbarDelegate
         if #available(macOS 14.0, *) {
             MergeConflictWindowManager.shared.openWindow(
                 store: nil, // Uses test data
-                onMergeComplete: { [weak self] in
+                onMergeComplete: {
                     // Handle merge completion - could refresh session or show success message
                     print("Merge completed successfully")
                 }

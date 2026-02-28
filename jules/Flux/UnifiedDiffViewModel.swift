@@ -339,7 +339,6 @@ final class UnifiedDiffViewModel: ObservableObject {
         }
 
         // Check if existing sections still match (by filename)
-        var changedIndices: [Int] = []
         let minCount = min(oldSections.count, newDiffs.count)
 
         for i in 0..<minCount {
@@ -913,10 +912,6 @@ final class UnifiedDiffViewModel: ObservableObject {
         let baselineRatio: Float = 0.78
         let textVerticalOffset: Float = lh * 0.25  // Scale with line height
         let textHorizontalOffset: Float = -4
-
-        // Calculate max scroll offset across all visible sections for background width
-        let maxSectionScrollOffset = sectionScrollOffsets.values.max() ?? 0
-        let bgWidth = Float(viewportWidth) + Float(maxSectionScrollOffset) + 200
 
         // Normalize selection
         var normalizedSelStart: GlobalTextPosition?
@@ -1711,13 +1706,12 @@ final class UnifiedDiffViewModel: ObservableObject {
         // Capture the current appearance BEFORE going to background thread.
         // NSColor dynamic providers need NSAppearance.current to resolve correctly.
         // Background threads don't inherit the app's appearance, causing wrong colors.
-        let currentAppearance = NSApp.effectiveAppearance
+        let appearanceName = NSApp.effectiveAppearance.name
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        DispatchQueue.global(qos: .userInitiated).async { [weak self, appearanceName] in
             guard let self = self else { return }
 
-            // Set the appearance for this thread so NSColor resolves correctly
-            NSAppearance.current = currentAppearance
+            let runParsing = {
 
             var newColorCache: [UUID: [SIMD4<Float>]] = [:]
             let defaultColor = AppColors.diffEditorText.simd4
@@ -1820,6 +1814,15 @@ final class UnifiedDiffViewModel: ObservableObject {
 
                 self.invalidateRenderCache()
                 self.objectWillChange.send()
+            }
+            }
+
+            if let appearance = NSAppearance(named: appearanceName) {
+                appearance.performAsCurrentDrawingAppearance {
+                    runParsing()
+                }
+            } else {
+                runParsing()
             }
         }
     }

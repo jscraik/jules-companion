@@ -221,7 +221,7 @@ final class MergeConflictViewModel: ObservableObject {
         var inIncomingSection = false
         var displayLineNumber = 1
 
-        for (index, line) in textLines.enumerated() {
+        for (_, line) in textLines.enumerated() {
             if line.hasPrefix("<<<<<<<") {
                 // Start of conflict
                 currentConflictIndex = parsedConflicts.count
@@ -773,13 +773,13 @@ final class MergeConflictViewModel: ObservableObject {
 
         guard !linesToParse.isEmpty else { return }
 
-        let currentAppearance = NSApp.effectiveAppearance
+        let appearanceName = NSApp.effectiveAppearance.name
         let lang = language ?? "swift"
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        DispatchQueue.global(qos: .userInitiated).async { [weak self, appearanceName] in
             guard let self = self else { return }
 
-            NSAppearance.current = currentAppearance
+            let runParsing = {
 
             var newColorCache: [UUID: [SIMD4<Float>]] = [:]
             let defaultColor = AppColors.diffEditorText.simd4
@@ -852,6 +852,15 @@ final class MergeConflictViewModel: ObservableObject {
 
                 self.invalidateRenderCache()
                 self.objectWillChange.send()
+            }
+            }
+
+            if let appearance = NSAppearance(named: appearanceName) {
+                appearance.performAsCurrentDrawingAppearance {
+                    runParsing()
+                }
+            } else {
+                runParsing()
             }
         }
     }

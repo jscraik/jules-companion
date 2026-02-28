@@ -110,7 +110,7 @@ struct SettingsWindowView: View {
                                     .padding(.vertical, 4)
                                     .background(AppColors.backgroundSecondary)
                                     .cornerRadius(4)
-                                    .onChange(of: apiKeyInput) { newValue in
+                                    .onValueChange(of: apiKeyInput) { newValue in
                                         dataManager.apiKey = newValue
                                         // Preload sources so they're ready for the user
                                         if !newValue.isEmpty {

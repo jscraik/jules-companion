@@ -161,7 +161,7 @@ struct ActivityView: View {
         // for better performance (gives API more time to fetch data)
         // Reset state when session changes - necessary since we don't use .id() on parent views
         // to avoid destroying NSViewRepresentables (Metal views, text editors)
-        .onChange(of: session?.id) { newId in
+        .onValueChange(of: session?.id) { newId in
             // OPTIMIZATION: Set rapid pagination flag to disable animations during fast navigation.
             // This prevents animation stacking/stuttering when quickly paginating between sessions.
             // The flag is reset after a short delay once the user settles on a session.
@@ -242,13 +242,13 @@ struct ActivityView: View {
                         .frame(maxWidth: .infinity, minHeight: 200)
                 } else {
                     chatContentView
-                        .onChange(of: displayableActivities.count) { _ in
+                        .onValueChange(of: displayableActivities.count) { _ in
                             scrollToBottom(proxy: proxy)
                         }
-                        .onChange(of: progressUpdateTrigger) { _ in
+                        .onValueChange(of: progressUpdateTrigger) { _ in
                             scrollToBottomOnProgress(proxy: proxy)
                         }
-                        .onChange(of: dataManager.isSendingMessage) { isSending in
+                        .onValueChange(of: dataManager.isSendingMessage) { isSending in
                             // Scroll to bottom immediately when user posts a message
                             // This ensures the user sees their message appear at the bottom
                             if isSending {

@@ -236,7 +236,7 @@ public class WaveMetalView: MTKView {
 
     @available(*, unavailable)
     required init(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        fatalError("init(coder:) is unavailable")
     }
 
     deinit {
@@ -361,7 +361,7 @@ public class WaveRenderer: NSObject, MTKViewDelegate {
         pipelineDescriptor.fragmentFunction = fragmentFunc
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
         pipelineDescriptor.colorAttachments[0].pixelFormat = view.colorPixelFormat
-        pipelineDescriptor.sampleCount = view.sampleCount
+        pipelineDescriptor.rasterSampleCount = view.sampleCount
 
         // Enable blending for transparency
         pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true

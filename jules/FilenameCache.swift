@@ -259,7 +259,7 @@ final class FilenameCache: ObservableObject {
                     .fetchAll(db)
 
                 // Build lookup for quick access
-                var recordsByPath = Dictionary(
+                let recordsByPath = Dictionary(
                     existingRecords.map { ($0.filePath, $0) },
                     uniquingKeysWith: { first, _ in first }
                 )
@@ -454,7 +454,7 @@ final class FilenameCache: ObservableObject {
     /// Clear all cached file paths for this repository
     func clear() {
         do {
-            try dbQueue.write { db in
+            _ = try dbQueue.write { db in
                 try CachedFilePath
                     .filter(CachedFilePath.Columns.repositoryId == repositoryId)
                     .deleteAll(db)

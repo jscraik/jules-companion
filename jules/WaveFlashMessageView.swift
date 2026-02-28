@@ -146,7 +146,7 @@ struct WaveFlashMessageView: View {
                 boidsController.play()
             }
         }
-        .onChange(of: phase) { newPhase in
+        .onValueChange(of: phase) { newPhase in
             if newPhase == .washingAway {
                 boidsController.stop()
             }

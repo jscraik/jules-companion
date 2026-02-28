@@ -1112,13 +1112,13 @@ class FluxViewModel: ObservableObject {
         // FIXED: Capture the current appearance BEFORE going to background thread.
         // NSColor dynamic providers need NSAppearance.current to resolve correctly.
         // Background threads don't inherit the app's appearance, causing wrong colors.
-        let currentAppearance = NSApp.effectiveAppearance
-        let isDarkMode = currentAppearance.bestMatch(from: [.darkAqua, .vibrantDark]) != nil
+        let effectiveAppearance = NSApp.effectiveAppearance
+        let appearanceName = effectiveAppearance.name
+        let isDarkMode = effectiveAppearance.bestMatch(from: [.darkAqua, .vibrantDark]) != nil
 
         // Phase 2: Parse uncached lines in background
-        DispatchQueue.global(qos: .userInitiated).async { [weak self, currentAppearance, isDarkMode] in
-            // Set the appearance for this thread so NSColor resolves correctly
-            NSAppearance.current = currentAppearance
+        DispatchQueue.global(qos: .userInitiated).async { [weak self, appearanceName, isDarkMode] in
+            let runParsing = {
             var newCache: [UUID: [StyledToken]] = [:]
             var newColorCache: [UUID: [SIMD4<Float>]] = [:]
 
@@ -1276,6 +1276,15 @@ class FluxViewModel: ObservableObject {
                 self.invalidateRenderCache()
 
                 self.objectWillChange.send()
+            }
+            }
+
+            if let appearance = NSAppearance(named: appearanceName) {
+                appearance.performAsCurrentDrawingAppearance {
+                    runParsing()
+                }
+            } else {
+                runParsing()
             }
         }
     }

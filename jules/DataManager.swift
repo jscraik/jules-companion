@@ -61,6 +61,9 @@ class DataManager: ObservableObject {
     // Track sessions currently having Gemini descriptions processed
     // This allows the view to show immediately while descriptions load in background
     private var inFlightGeminiProcessing: Set<String> = []
+    // Bumped whenever in-memory state is reset (for example, on account switch).
+    // Async tasks capture this and drop stale results if the generation changed.
+    private var dataGeneration: UInt64 = 0
 
     // --- Gemini Processing Throttling ---
     // Limits the number of concurrent Gemini processing tasks across all sessions
@@ -81,6 +84,9 @@ class DataManager: ObservableObject {
     private let networkMonitor = NetworkMonitor.shared
     private var sourceRepository: SourceRepository!
     private(set) var offlineSyncManager: OfflineSyncManager!
+    /// True while API-key switch flow is clearing caches.
+    /// Used to suppress duplicate refresh work from clearInMemoryCaches notifications.
+    private var isHandlingApiKeyCacheReset = false
 
     /// Whether the device is currently connected to the network
     @Published var isOnline: Bool = true
@@ -146,6 +152,10 @@ class DataManager: ObservableObject {
             let wasEmpty = oldValue.isEmpty
             let isNowFilled = !apiKey.isEmpty
             let keyChanged = oldValue != apiKey
+            let changedToKey = apiKey
+
+            // Ignore no-op assignments to avoid redundant fetch/polling work.
+            guard keyChanged else { return }
 
             UserDefaults.standard.set(apiKey, forKey: apiKeyKey)
             apiService.apiKey = apiKey
@@ -154,17 +164,37 @@ class DataManager: ObservableObject {
             // This ensures the new user starts with a blank slate
             if !wasEmpty && keyChanged {
                 print("[DataManager] API key changed - clearing all caches for fresh start")
-                Task {
+                stopPolling()
+                Task { @MainActor in
+                    // Prevent cross-account activity cache reuse.
+                    self.apiService.clearAllActivityCaches()
+                    self.isHandlingApiKeyCacheReset = true
+                    defer { self.isHandlingApiKeyCacheReset = false }
+
                     let result = await CacheManager.shared.clearAllCaches()
                     if !result.success {
                         print("[DataManager] Warning: Cache clearing had errors: \(result.error ?? "unknown")")
                     }
-                }
-            }
 
-            if !apiKey.isEmpty {
+                    // If key changed again while cache clearing was in progress, don't run stale fetches.
+                    guard self.apiKey == changedToKey else { return }
+
+                    if !self.apiKey.isEmpty {
+                        self.fetchSources(forceRefresh: true)
+                        await self.fetchSessions(bypassRateLimit: true)
+                        self.startPolling()
+                    } else {
+                        self.stopPolling()
+                    }
+                }
+            } else if !apiKey.isEmpty {
                 fetchSources()
-                Task { await fetchSessions() }
+                Task { @MainActor in
+                    await fetchSessions()
+                    startPolling()
+                }
+            } else {
+                stopPolling()
             }
 
             // Request permissions automatically when API key is added for the first time
@@ -224,7 +254,7 @@ class DataManager: ObservableObject {
     // --- Dependencies ---
     private let sessionRepository: SessionRepository
     private let apiService = APIService()
-    nonisolated(unsafe) private var pollingController: SessionPollingController?
+    private var pollingController: SessionPollingController?
     private let mergeManager = LocalMergeManager()
 
     // Helper to access LoadingProfiler's memory profiling flag
@@ -309,7 +339,6 @@ class DataManager: ObservableObject {
     }
 
     deinit {
-        stopPolling()
         cancellables.forEach { $0.cancel() }
     }
 
@@ -457,12 +486,22 @@ class DataManager: ObservableObject {
                 guard let self = self else { return }
                 self.clearInMemoryData()
 
+                // During API-key switching we run an explicit, ordered refresh flow
+                // after cache clearing; skip this generic refresh path to avoid
+                // duplicate fetches and polling restarts.
+                if self.isHandlingApiKeyCacheReset {
+                    return
+                }
+
                 // Immediately fetch fresh data after clearing cache
                 // This ensures the UI shows current data rather than being empty
                 if !self.apiKey.isEmpty {
+                    let keyAtRefreshStart = self.apiKey
                     self.fetchSources()
                     Task {
                         await self.fetchSessions(bypassRateLimit: true)
+                        guard self.apiKey == keyAtRefreshStart, !self.apiKey.isEmpty else { return }
+                        self.startPolling()
                     }
                 }
             }
@@ -578,13 +617,14 @@ class DataManager: ObservableObject {
         pollingController?.startPolling()
     }
 
-    nonisolated func stopPolling() {
+    func stopPolling() {
         pollingController?.stopPolling()
     }
 
     @MainActor
     func fetchActivities(for sessionIds: [String]) async {
         let profiler = LoadingProfiler.shared
+        let generation = dataGeneration
 
         // Filter out sessions that don't need activity fetching
         // Completed sessions with cached git stats don't need re-fetching
@@ -599,23 +639,40 @@ class DataManager: ObservableObject {
         // Skip if no sessions need fetching
         guard !sessionsNeedingFetch.isEmpty else { return }
 
+        // Prevent duplicate requests for the same sessions when on-demand and polling
+        // paths overlap. Keep only IDs not already being fetched, then reserve them.
+        let availableSessionIds = sessionsNeedingFetch.filter { !inFlightActivityFetches.contains($0) }
+        guard !availableSessionIds.isEmpty else { return }
+        inFlightActivityFetches.formUnion(availableSessionIds)
+        defer {
+            for sessionId in availableSessionIds {
+                inFlightActivityFetches.remove(sessionId)
+            }
+        }
+
         // Log diff cache state before fetching to help debug memory spikes
         DiffStorageManager.shared.logCacheMemory("before fetch")
 
-        profiler.startMemoryTrace("fetchActivities(\(sessionsNeedingFetch.count) sessions)")
+        profiler.startMemoryTrace("fetchActivities(\(availableSessionIds.count) sessions)")
 
         // Record rate limiting for each request we're about to make
-        for _ in sessionsNeedingFetch {
+        for _ in availableSessionIds {
             await rateLimiter.recordRequest()
         }
 
         profiler.startMemoryTrace("API fetch activities")
-        let results = await apiService.fetchActivities(sessionIds: sessionsNeedingFetch)
+        let results = await apiService.fetchActivities(sessionIds: availableSessionIds)
         profiler.endMemoryTrace("API fetch activities")
 
         let pollTime = Date()
+        var didDetectStaleGeneration = false
 
-        for (sessionId, result) in results {
+        activityLoop: for (sessionId, result) in results {
+            guard generation == dataGeneration else {
+                didDetectStaleGeneration = true
+                break activityLoop
+            }
+
             switch result {
             case .success(let fetchResult):
                 // MEMORY FIX: Hash-based cache validation in APIService skips JSON decoding
@@ -628,9 +685,20 @@ class DataManager: ObservableObject {
                     if isMemoryProfilingEnabled {
                         print("🧠 [MemoryFix] Session \(sessionId.prefix(8)): response hash unchanged, skipped JSON decoding")
                     }
+                    // Mark the poll time even when unchanged so on-demand checks
+                    // don't immediately re-fetch the same unchanged payload.
+                    if var existingSession = self.sessionsById[sessionId] {
+                        existingSession.lastActivityPollTime = pollTime
+                        updateLocalSessionCache(existingSession)
+                    }
                     continue
 
                 case .activities(let activities):
+                    guard generation == dataGeneration else {
+                        didDetectStaleGeneration = true
+                        break activityLoop
+                    }
+
                     // New or changed activities - process normally
                     guard var sessionToUpdate = self.sessions.first(where: { $0.id == sessionId }) else {
                         continue
@@ -741,6 +809,11 @@ class DataManager: ObservableObject {
                 await sessionRepository.updateSession(sessionToUpdate)
                 profiler.endMemoryTrace("saveSession \(sessionId.prefix(8))")
 
+                guard generation == dataGeneration else {
+                    didDetectStaleGeneration = true
+                    break activityLoop
+                }
+
                 // MEMORY FIX: Clear cachedLatestDiffs after saving to repository.
                 // The diffs are now stored in DiffStorageManager, so keeping them in
                 // the Session object would duplicate memory. Without this, diffs were
@@ -775,7 +848,11 @@ class DataManager: ObservableObject {
             }
         }
 
-        profiler.endMemoryTrace("fetchActivities(\(sessionsNeedingFetch.count) sessions)")
+        profiler.endMemoryTrace("fetchActivities(\(availableSessionIds.count) sessions)")
+
+        if didDetectStaleGeneration {
+            profiler.checkpoint("Data: Stale generation in bulk fetch, stopped processing")
+        }
 
         // Log diff cache state after fetching to help correlate memory spikes with cache growth
         DiffStorageManager.shared.logCacheMemory("after fetch")
@@ -833,18 +910,24 @@ class DataManager: ObservableObject {
         guard needsProcessing else { return }
 
         inFlightGeminiProcessing.insert(sessionId)
+        let generation = dataGeneration
 
         Task {
             defer {
-                Task { @MainActor in
-                    self.inFlightGeminiProcessing.remove(sessionId)
-                }
+                self.inFlightGeminiProcessing.remove(sessionId)
             }
+
+            guard generation == self.dataGeneration else { return }
 
             // Acquire semaphore slot with priority handling
             // Priority sessions (currently viewed) are processed before background sessions
             // This ensures the user sees descriptions update quickly for the session they're viewing
             await geminiProcessingSemaphore.acquire(priority: isPriority)
+
+            guard generation == self.dataGeneration else {
+                await geminiProcessingSemaphore.release()
+                return
+            }
 
             let profiler = LoadingProfiler.shared
             profiler.beginSpan("Data: Gemini async processing \(sessionId.prefix(8))")
@@ -866,6 +949,8 @@ class DataManager: ObservableObject {
             // Release semaphore immediately after API call completes
             // This allows other sessions to start processing while we update the local cache
             await geminiProcessingSemaphore.release()
+
+            guard generation == self.dataGeneration else { return }
 
             profiler.endMemoryTrace("Gemini async \(sessionId.prefix(8))")
             profiler.endSpan("Data: Gemini async processing \(sessionId.prefix(8))")
@@ -1008,7 +1093,7 @@ class DataManager: ObservableObject {
             profiler.beginSpan("Data: fetchSources")
             // The SourceRepository handles offline-first logic internally
             // It will return cached data if offline, or fetch from API if online
-            await sourceRepository.refresh()
+            await sourceRepository.refresh(force: forceRefresh)
             profiler.endSpan("Data: fetchSources")
         }
     }
@@ -1045,9 +1130,8 @@ class DataManager: ObservableObject {
     // Explicit trigger for UI "Load More" or "Retry"
     // Bypasses rate limit since this is an explicit user action
     func loadMoreData() async {
-        // If retrying, we force a fetch attempt
-        // Bypass rate limit for explicit user clicks on "Load More"
-        await sessionRepository.fetchMoreData(bypassRateLimit: true)
+        // Expand local DB-backed rows first; only hit API if local cache is exhausted.
+        await sessionRepository.loadMoreAsync(bypassRateLimit: true)
     }
 
     /// Force refresh sessions from API - clears local cache and re-fetches
@@ -1125,6 +1209,7 @@ class DataManager: ObservableObject {
 
         isCreatingSession = true
         promptText = ""; clearDraftAttachment()
+        let generation = dataGeneration
 
         // Show wave flash message at top of menu
         FlashMessageManager.shared.show(
@@ -1150,6 +1235,11 @@ class DataManager: ObservableObject {
                 FlashMessageManager.shared.hide()
             }
 
+            guard generation == self.dataGeneration else {
+                StickyStatusFlashManager.shared.clear(sessionId: StickyStatusFlashManager.newSessionKey)
+                return
+            }
+
             // Check if we're offline - queue the session for later
             if !networkMonitor.isConnected {
                 do {
@@ -1158,6 +1248,10 @@ class DataManager: ObservableObject {
                         branchName: branchName,
                         prompt: promptToSend
                     )
+                    guard generation == self.dataGeneration else {
+                        StickyStatusFlashManager.shared.clear(sessionId: StickyStatusFlashManager.newSessionKey)
+                        return
+                    }
                     UserDefaults.standard.set(sourceId, forKey: lastUsedSourceIdKey)
                     saveLastUsedBranch(branchName, forSource: sourceId)
                     // Show success flash briefly then clear (view stays on form for offline)
@@ -1182,6 +1276,10 @@ class DataManager: ObservableObject {
                 // avoiding the race condition where getNewestSession() might return
                 // a different session if the new one isn't immediately available via polling.
                 let newSession = try await apiService.createSession(source: selectedSource, branchName: branchName, prompt: promptToSend)
+                guard generation == self.dataGeneration else {
+                    StickyStatusFlashManager.shared.clear(sessionId: StickyStatusFlashManager.newSessionKey)
+                    return
+                }
                 if let newSession = newSession {
                     UserDefaults.standard.set(sourceId, forKey: lastUsedSourceIdKey)
                     saveLastUsedBranch(branchName, forSource: sourceId)
@@ -1209,6 +1307,10 @@ class DataManager: ObservableObject {
 
                     // Save to database so it persists
                     await sessionRepository.updateSession(newSession)
+                    guard generation == self.dataGeneration else {
+                        StickyStatusFlashManager.shared.clear(sessionId: StickyStatusFlashManager.newSessionKey)
+                        return
+                    }
 
                     self.sessionCreatedPublisher.send(newSession)
 
@@ -1230,6 +1332,10 @@ class DataManager: ObservableObject {
                         branchName: branchName,
                         prompt: promptToSend
                     )
+                    guard generation == self.dataGeneration else {
+                        StickyStatusFlashManager.shared.clear(sessionId: StickyStatusFlashManager.newSessionKey)
+                        return
+                    }
                     UserDefaults.standard.set(sourceId, forKey: lastUsedSourceIdKey)
                     saveLastUsedBranch(branchName, forSource: sourceId)
                     // Show success flash (view stays on form for queued tasks)
@@ -1284,6 +1390,7 @@ class DataManager: ObservableObject {
     
     func sendMessage(session: Session, message: String) {
         guard !isSendingMessage else { return }
+        let generation = dataGeneration
 
         isSendingMessage = true
 
@@ -1297,13 +1404,26 @@ class DataManager: ObservableObject {
 
         Task {
             defer { self.isSendingMessage = false }
+            guard generation == self.dataGeneration else {
+                StickyStatusFlashManager.shared.clear(sessionId: session.id)
+                return
+            }
             do {
                 let success = try await apiService.sendMessage(sessionId: session.id, message: message)
+                guard generation == self.dataGeneration else {
+                    StickyStatusFlashManager.shared.clear(sessionId: session.id)
+                    return
+                }
                 if success {
                     // Clear the activity response hash cache to ensure we get fresh data
                     // after sending a message (the response will definitely be different)
                     apiService.clearActivityCache(for: session.id)
-                    await fetchActivities(for: session)
+                    // Avoid duplicate fetches if polling/on-demand fetch is already in flight.
+                    let inserted = self.inFlightActivityFetches.insert(session.id).inserted
+                    if inserted {
+                        defer { self.inFlightActivityFetches.remove(session.id) }
+                        await fetchActivities(for: session)
+                    }
                 } else {
                     StickyStatusFlashManager.shared.clear(sessionId: session.id)
                     FlashMessageManager.shared.show(message: "Failed to send message.", type: .error)
@@ -1318,6 +1438,7 @@ class DataManager: ObservableObject {
 
     func fetchActivities(for session: Session) async {
         let profiler = LoadingProfiler.shared
+        let generation = dataGeneration
         profiler.beginSpan("Data: fetchActivities(\(session.id.prefix(8))...)")
         profiler.startMemoryTrace("fetchActivities(single) \(session.id.prefix(8))")
 
@@ -1330,10 +1451,23 @@ class DataManager: ObservableObject {
             profiler.endMemoryTrace("API fetch \(session.id.prefix(8))")
             profiler.endSpan("Data: API fetchActivities")
 
+            guard generation == dataGeneration else {
+                profiler.checkpoint("Data: Stale generation, dropping fetch result")
+                profiler.endMemoryTrace("fetchActivities(single) \(session.id.prefix(8))")
+                profiler.endSpan("Data: fetchActivities(\(session.id.prefix(8))...)")
+                return
+            }
+
             // Handle cache hit - skip all processing if response unchanged
             guard case .activities(let activities) = fetchResult else {
                 if isMemoryProfilingEnabled {
                     print("🧠 [MemoryFix] Session \(session.id.prefix(8)): response hash unchanged, skipped JSON decoding")
+                }
+                // Preserve a fresh poll timestamp so ensureActivities() rate limiting
+                // works even when the payload has not changed.
+                if var unchangedSession = self.sessionsById[session.id] {
+                    unchangedSession.lastActivityPollTime = Date()
+                    updateLocalSessionCache(unchangedSession)
                 }
                 profiler.checkpoint("Data: Response unchanged, skipped decoding")
                 profiler.endMemoryTrace("fetchActivities(single) \(session.id.prefix(8))")
@@ -1408,6 +1542,13 @@ class DataManager: ObservableObject {
             profiler.endMemoryTrace("saveSession \(session.id.prefix(8))")
             profiler.endSpan("Data: updateSession in DB")
 
+            guard generation == dataGeneration else {
+                profiler.checkpoint("Data: Stale generation after DB save, skipping cache update")
+                profiler.endMemoryTrace("fetchActivities(single) \(session.id.prefix(8))")
+                profiler.endSpan("Data: fetchActivities(\(session.id.prefix(8))...)")
+                return
+            }
+
             // MEMORY FIX: Clear cachedLatestDiffs after saving to repository.
             // The diffs are now stored in DiffStorageManager, so keeping them in
             // the Session object would duplicate memory. Without this, diffs were
@@ -1445,37 +1586,43 @@ class DataManager: ObservableObject {
 
     // On-demand fetch for UI with rate limiting and poll time checks
     func ensureActivities(for session: Session) {
+        // Always use the freshest in-memory copy when available.
+        // Call sites often pass a session snapshot that may have stale
+        // lastActivityPollTime/activities after async repository updates.
+        let currentSession = sessionsById[session.id] ?? session
+
         // If already fetching this session, skip
-        guard !inFlightActivityFetches.contains(session.id) else { return }
+        guard !inFlightActivityFetches.contains(currentSession.id) else { return }
 
         // For terminal sessions with activities already loaded, skip API fetch
         // These sessions won't have new activities, so use cached data from DB
-        let isTerminalState = session.state.isTerminal
-        if isTerminalState && session.activities != nil {
+        let isTerminalState = currentSession.state.isTerminal
+        if isTerminalState && currentSession.activities != nil {
             LoadingProfiler.shared.checkpoint("Data: ensureActivities skipped (terminal state with cached data)")
             return
         }
 
         // For in-progress sessions, check poll interval to avoid too frequent fetches
-        if session.activities != nil {
-            if let lastPollTime = session.lastActivityPollTime,
+        if currentSession.activities != nil {
+            if let lastPollTime = currentSession.lastActivityPollTime,
                Date().timeIntervalSince(lastPollTime) < minActivityPollInterval {
                 LoadingProfiler.shared.checkpoint("Data: ensureActivities skipped (poll interval)")
                 return
             }
         }
 
-        inFlightActivityFetches.insert(session.id)
+        inFlightActivityFetches.insert(currentSession.id)
+        let generation = dataGeneration
 
         Task {
             defer {
-                Task { @MainActor in
-                    self.inFlightActivityFetches.remove(session.id)
-                }
+                self.inFlightActivityFetches.remove(currentSession.id)
             }
 
+            guard generation == self.dataGeneration else { return }
+
             let profiler = LoadingProfiler.shared
-            profiler.beginSpan("Data: ensureActivities(\(session.id.prefix(8))...)")
+            profiler.beginSpan("Data: ensureActivities(\(currentSession.id.prefix(8))...)")
 
             // Check rate limit before fetching
             let isApproachingLimit = await rateLimiter.isApproachingLimit()
@@ -1493,8 +1640,8 @@ class DataManager: ObservableObject {
             }
 
             await rateLimiter.recordRequest()
-            await fetchActivities(for: session)
-            profiler.endSpan("Data: ensureActivities(\(session.id.prefix(8))...)")
+            await fetchActivities(for: currentSession)
+            profiler.endSpan("Data: ensureActivities(\(currentSession.id.prefix(8))...)")
         }
     }
 
@@ -1526,12 +1673,12 @@ class DataManager: ObservableObject {
 
     /// Count the number of files with conflicts
     /// Returns the number of files that would have conflicts, or nil if unknown
-    func countConflicts(session: Session) -> Int? {
+    func countConflicts(session: Session) async -> Int? {
         guard let sourceName = session.sourceContext?.source,
               let source = sources.first(where: { $0.name == sourceName }) else {
             return nil // Can't determine conflicts without source
         }
-        return mergeManager.countConflicts(session: session, sourceId: source.id)
+        return await mergeManager.countConflicts(session: session, sourceId: source.id)
     }
 
     // MARK: - Session Viewed State
@@ -1627,6 +1774,10 @@ class DataManager: ObservableObject {
     func clearInMemoryData() {
         print("[DataManager] Clearing all in-memory data for fresh start")
 
+        // Stop periodic work while clearing state to avoid stale writes.
+        stopPolling()
+        dataGeneration &+= 1
+
         // Clear all session data
         sessions = []
         recentSessions = []
@@ -1644,6 +1795,18 @@ class DataManager: ObservableObject {
 
         // Clear in-flight fetches
         inFlightActivityFetches.removeAll()
+        inFlightGeminiProcessing.removeAll()
+        apiService.clearAllActivityCaches()
+
+        isThrottlingActivities = false
+        isSendingMessage = false
+        isCreatingSession = false
+        isLoadingSources = false
+        isLoadingSessions = false
+        isLoadingMoreForPagination = false
+        syncState = .idle
+        hasMoreSessions = true
+        sessionRepository.syncState = .idle
 
         // Clear diff caches
         DiffPrecomputationService.shared.clearAllCache()

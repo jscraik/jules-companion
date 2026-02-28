@@ -10,6 +10,7 @@ enum SyncState: Equatable {
     case loadedAll
 }
 
+@MainActor
 class SessionRepository: ObservableObject {
     private let dbQueue: DatabasePool // Changed to DatabasePool
     private let apiService: APIService
@@ -37,7 +38,28 @@ class SessionRepository: ObservableObject {
     // Rate limiting for session list API
     private var lastRefreshTime: Date?
     private var isRefreshInProgress = false
+    private var pendingBypassRefresh = false
+    private var pendingLoadMoreRequest = false
     private let minimumRefreshInterval: TimeInterval = 5  // Minimum seconds between API calls
+
+    private func finishRefreshCycle() {
+        isRefreshInProgress = false
+        if pendingLoadMoreRequest {
+            pendingLoadMoreRequest = false
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.loadMoreAsync(bypassRateLimit: true)
+            }
+            return
+        }
+        if pendingBypassRefresh {
+            pendingBypassRefresh = false
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.refresh(bypassRateLimit: true)
+            }
+        }
+    }
 
     init(dbQueue: DatabasePool, apiService: APIService) {
         self.dbQueue = dbQueue
@@ -140,25 +162,18 @@ class SessionRepository: ObservableObject {
     func forceRefreshFromAPI() async {
         // Prevent concurrent refresh calls (shared with refresh())
         guard !isRefreshInProgress else {
+            pendingBypassRefresh = true
             #if DEBUG
             print("⏭️ forceRefreshFromAPI() skipped - refresh already in progress")
             #endif
             return
         }
 
-        // Rate limit: respect minimum interval between API calls
-        if let lastRefresh = lastRefreshTime {
-            let elapsed = Date().timeIntervalSince(lastRefresh)
-            if elapsed < minimumRefreshInterval {
-                #if DEBUG
-                print("⏭️ forceRefreshFromAPI() skipped - rate limited (\(String(format: "%.1f", elapsed))s < \(minimumRefreshInterval)s)")
-                #endif
-                return
-            }
-        }
+        // Intentionally do not apply rate limiting here.
+        // This path is used for explicit recovery/repair and must fetch immediately.
 
         isRefreshInProgress = true
-        defer { isRefreshInProgress = false }
+        defer { finishRefreshCycle() }
 
         // Reset pagination state
         nextPageToken = nil
@@ -189,11 +204,12 @@ class SessionRepository: ObservableObject {
                 try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
             }
 
-            self.nextPageToken = response.nextPageToken
+            let responseNextPageToken = response.nextPageToken
+            let incomingSessions = response.sessions ?? []
+            self.nextPageToken = responseNextPageToken
 
             try await dbQueue.write { db in
                 // Get set of incoming session IDs for cleanup
-                let incomingSessions = response.sessions ?? []
                 let incomingIds = Set(incomingSessions.map { $0.id })
 
                 // MEMORY FIX: Only fetch existing sessions that match incoming IDs
@@ -265,8 +281,9 @@ class SessionRepository: ObservableObject {
                 }
             }
 
+            let hasMorePages = responseNextPageToken != nil
             await MainActor.run {
-                self.syncState = .idle
+                self.syncState = hasMorePages ? .idle : .loadedAll
             }
         } catch {
             print("Force refresh error: \(error)")
@@ -316,6 +333,9 @@ class SessionRepository: ObservableObject {
     func refresh(bypassRateLimit: Bool = false) async {
         // Prevent concurrent refresh calls
         guard !isRefreshInProgress else {
+            if bypassRateLimit {
+                pendingBypassRefresh = true
+            }
             #if DEBUG
             print("⏭️ SessionRepository.refresh() skipped - already in progress")
             #endif
@@ -337,14 +357,22 @@ class SessionRepository: ObservableObject {
         if !hasPerformedInitialFetch {
             hasPerformedInitialFetch = true
             let count = (try? await dbQueue.read { db in try Session.fetchCount(db) }) ?? 0
-            if count > 0 {
-                syncState = .idle // We have local data, no need to fetch on first launch
+            // On first launch with cached data, skip an immediate API call for responsiveness.
+            // But if this refresh is explicitly bypassing rate limits (user/manual recovery),
+            // always fetch from API so pagination token/state can be repaired.
+            if count > 0 && !bypassRateLimit {
+                // We have local data, no need to fetch on first launch.
+                // Treat pagination as "unknown" until we fetch at least one API page in
+                // this app run; a persisted nil token can mean either "loaded all" or
+                // simply "token never captured", and defaulting to loadedAll hides
+                // load-more affordances for users with additional server pages.
+                syncState = .idle
                 return
             }
         }
 
         isRefreshInProgress = true
-        defer { isRefreshInProgress = false }
+        defer { finishRefreshCycle() }
 
         syncState = .loading
         do {
@@ -391,7 +419,7 @@ class SessionRepository: ObservableObject {
                     try newSession.saveWithDiffs(db)
                 }
             }
-            syncState = .idle
+            syncState = response.nextPageToken == nil ? .loadedAll : .idle
         } catch {
             print("Refresh error: \(error)")
             syncState = .error(error.localizedDescription)
@@ -400,12 +428,26 @@ class SessionRepository: ObservableObject {
 
     // Logic to handle "Load More" from UI
     func loadMore() {
-        // Don't do anything if already loading or loaded all (unless we are just increasing DB limit?)
-        // But if we are loading from API, we might still want to increase limit if DB has more data?
-        // Let's keep it simple.
-        if case .loading = syncState { return }
+        Task(priority: .userInitiated) { @MainActor [weak self] in
+            guard let self else { return }
+            await self.loadMoreAsync(bypassRateLimit: true)
+        }
+    }
 
-        Task(priority: .userInitiated) {
+    /// Expands local DB-backed pagination first, then fetches from API only when needed.
+    /// - Parameter bypassRateLimit: Whether API fallback should bypass refresh throttling.
+    func loadMoreAsync(bypassRateLimit: Bool = true) async {
+        if case .loading = syncState {
+            if isRefreshInProgress {
+                pendingLoadMoreRequest = true
+                if bypassRateLimit {
+                    pendingBypassRefresh = true
+                }
+            }
+            return
+        }
+
+        do {
             // Check if DB has more items than current limit
             let totalCount = try await dbQueue.read { db in
                 try Session.fetchCount(db)
@@ -413,22 +455,22 @@ class SessionRepository: ObservableObject {
 
             if totalCount > limit {
                 // We have more data in DB that is not shown yet.
-                // Just increase the limit.
-                await MainActor.run {
-                    self.limit += self.pageSize
-                }
-                // If the increase still leaves us with totalCount <= newLimit, we might want to pre-fetch?
-                // But the user will scroll again and trigger loadMore again if needed.
+                // Expand visible limit to include all currently available rows.
+                limit = totalCount
             } else {
                 // DB is exhausted (or we are showing everything).
-                // Fetch more from API in the background.
-                await fetchMoreDataInBackground()
+                // Fetch more from API (with token recovery if needed).
+                await fetchMoreData(bypassRateLimit: bypassRateLimit)
             }
+        } catch {
+            print("Load more error: \(error)")
+            syncState = .error(error.localizedDescription)
         }
     }
 
     func fetchMoreData(bypassRateLimit: Bool = false) async {
-        guard syncState != .loading && syncState != .loadedAll else { return }
+        guard syncState != .loading else { return }
+        if syncState == .loadedAll && !bypassRateLimit { return }
 
         // Rate limit pagination calls (unless bypassed for explicit user action)
         if !bypassRateLimit, let lastRefresh = lastRefreshTime {
@@ -441,14 +483,38 @@ class SessionRepository: ObservableObject {
             }
         }
 
-        guard let token = nextPageToken else {
-            syncState = .loadedAll
+        let tokenToFetch: String?
+        if let token = nextPageToken {
+            tokenToFetch = token
+        } else {
+            // Recovery path: nextPageToken can be missing/stale even when the server
+            // still has more pages (e.g., cache/bootstrap edge cases). Refresh first page
+            // to repopulate pagination state before declaring loadedAll.
+            await refresh(bypassRateLimit: true)
+            tokenToFetch = nextPageToken
+            guard tokenToFetch != nil else {
+                if case .error = syncState {
+                    return
+                }
+                syncState = .loadedAll
+                return
+            }
+        }
+
+        guard let tokenToFetch else { return }
+        guard !isRefreshInProgress else {
+            pendingLoadMoreRequest = true
+            if bypassRateLimit {
+                pendingBypassRefresh = true
+            }
             return
         }
+        isRefreshInProgress = true
+        defer { finishRefreshCycle() }
 
         syncState = .loading
         do {
-            let response = try await apiService.fetchSessions(pageSize: pageSize, pageToken: token)
+            let response = try await apiService.fetchSessions(pageSize: pageSize, pageToken: tokenToFetch)
             lastRefreshTime = Date()  // Update after successful fetch
             self.nextPageToken = response.nextPageToken
 
@@ -502,10 +568,8 @@ class SessionRepository: ObservableObject {
             let newTotal = try await dbQueue.read { try Session.fetchCount($0) }
             await MainActor.run {
                 if self.limit < newTotal {
-                    self.limit = newTotal // Or just increase by pageSize? Let's just show everything we have up to new total.
-                    // Or strictly: limit += pageSize.
-                    // If we just fetched 25 items, we want to show them.
-                    self.limit += self.pageSize
+                    // Show all rows currently present after the fetch.
+                    self.limit = newTotal
                 }
 
                 if response.nextPageToken == nil {
@@ -524,14 +588,33 @@ class SessionRepository: ObservableObject {
     /// Fetches more data in the background without blocking the UI
     /// This version updates the loading state immediately and performs DB operations asynchronously
     private func fetchMoreDataInBackground() async {
-        guard syncState != .loading && syncState != .loadedAll else { return }
+        guard syncState != .loading else { return }
+        if syncState == .loadedAll { return }
 
-        guard let token = nextPageToken else {
-            await MainActor.run {
-                self.syncState = .loadedAll
+        let tokenToFetch: String?
+        if let token = nextPageToken {
+            tokenToFetch = token
+        } else {
+            // Same recovery path as fetchMoreData(): refresh first page to recover token.
+            await refresh(bypassRateLimit: true)
+            tokenToFetch = nextPageToken
+            guard tokenToFetch != nil else {
+                if case .error = syncState {
+                    return
+                }
+                await MainActor.run { self.syncState = .loadedAll }
+                return
             }
+        }
+
+        guard let tokenToFetch else { return }
+        guard !isRefreshInProgress else {
+            pendingLoadMoreRequest = true
+            pendingBypassRefresh = true
             return
         }
+        isRefreshInProgress = true
+        defer { finishRefreshCycle() }
 
         // Update state immediately on main actor
         await MainActor.run {
@@ -540,7 +623,7 @@ class SessionRepository: ObservableObject {
 
         // Perform network and DB operations in background
         do {
-            let response = try await apiService.fetchSessions(pageSize: pageSize, pageToken: token)
+            let response = try await apiService.fetchSessions(pageSize: pageSize, pageToken: tokenToFetch)
             lastRefreshTime = Date()  // Update after successful fetch
             let pageToken = response.nextPageToken
 
@@ -592,7 +675,8 @@ class SessionRepository: ObservableObject {
             await MainActor.run {
                 self.nextPageToken = pageToken
                 if self.limit < newTotal {
-                    self.limit += self.pageSize
+                    // Ensure visible limit always covers the data we already have.
+                    self.limit = newTotal
                 }
 
                 if pageToken == nil {
@@ -771,7 +855,7 @@ class SessionRepository: ObservableObject {
                 print("🗑️ Session \(session.id.prefix(8)) no longer exists on server - deleting locally")
 
                 do {
-                    try await dbQueue.write { db in
+                    _ = try await dbQueue.write { db in
                         try Session.deleteOne(db, key: session.id)
                     }
                     // Clean up diff files

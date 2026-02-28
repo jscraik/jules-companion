@@ -150,6 +150,23 @@ struct SidebarView: View {
         return 0
     }
 
+    @ViewBuilder
+    private func withKeyboardNavigation<Content: View>(_ content: Content) -> some View {
+        if #available(macOS 14.0, *) {
+            content
+                .onKeyPress(.upArrow) {
+                    selectPreviousSession()
+                    return .handled
+                }
+                .onKeyPress(.downArrow) {
+                    selectNextSession()
+                    return .handled
+                }
+        } else {
+            content
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Search bar
@@ -189,7 +206,7 @@ struct SidebarView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding()
             } else {
-                List {
+                withKeyboardNavigation(List {
                     // Today Section
                     if !todaySessions.isEmpty {
                         Section {
@@ -241,28 +258,20 @@ struct SidebarView: View {
                             sectionHeader("Older")
                         }
                     }
-                }
+                })
                 .listStyle(SidebarListStyle())
                 .scrollContentBackground(.hidden)
                 .focusable()
                 .focused($isListFocused)
-                .onKeyPress(.upArrow) {
-                    selectPreviousSession()
-                    return .handled
-                }
-                .onKeyPress(.downArrow) {
-                    selectNextSession()
-                    return .handled
-                }
             }
         }
         .background(Color.clear)
-        .onChange(of: searchText) { _ in
+        .onValueChange(of: searchText) { _ in
             // Reset pagination when search changes
             allSectionLimit = allSectionPageSize
             updateCachedSessions()
         }
-        .onChange(of: dataManager.recentSessions.count) { _ in
+        .onValueChange(of: dataManager.recentSessions.count) { _ in
             // Update cache when sessions list changes
             if cacheKey != lastCacheKey {
                 updateCachedSessions()

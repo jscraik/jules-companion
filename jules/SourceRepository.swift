@@ -3,6 +3,7 @@ import Combine
 import GRDB
 
 /// Repository for managing sources with offline-first support
+@MainActor
 class SourceRepository: ObservableObject {
     private let dbQueue: DatabasePool
     private let apiService: APIService
@@ -15,6 +16,10 @@ class SourceRepository: ObservableObject {
 
     @Published var isLoading: Bool = false
     @Published var lastSyncTime: Date?
+    private var isRefreshInProgress = false
+    private var pendingForcedRefresh = false
+    private var lastRefreshAttemptTime: Date?
+    private let minimumRefreshInterval: TimeInterval = 5
 
     private var cancellables: Set<AnyCancellable> = []
 
@@ -75,9 +80,42 @@ class SourceRepository: ObservableObject {
     /// Fetches sources from API and updates the local cache
     /// Returns the sources (from cache if API fails when offline)
     @discardableResult
-    func refresh() async -> [Source] {
-        await MainActor.run { self.isLoading = true }
-        defer { Task { @MainActor in self.isLoading = false } }
+    func refresh(force: Bool = false) async -> [Source] {
+        // Prevent overlapping source refreshes from concurrent call sites.
+        guard !isRefreshInProgress else {
+            // Queue one forced refresh to run after the in-flight request completes.
+            // This is important when credentials switch while a request is running.
+            if force {
+                pendingForcedRefresh = true
+            }
+            return await getCachedSources()
+        }
+
+        // Soft rate limit to avoid hammering the API when multiple UI events trigger refresh.
+        if !force, let lastRefreshAttemptTime {
+            let elapsed = Date().timeIntervalSince(lastRefreshAttemptTime)
+            if elapsed < minimumRefreshInterval {
+                let cached = await getCachedSources()
+                if !cached.isEmpty {
+                    return cached
+                }
+            }
+        }
+
+        isRefreshInProgress = true
+        lastRefreshAttemptTime = Date()
+        isLoading = true
+        defer {
+            isRefreshInProgress = false
+            isLoading = false
+            if pendingForcedRefresh {
+                pendingForcedRefresh = false
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    _ = await self.refresh(force: true)
+                }
+            }
+        }
 
         do {
             let fetchedSources = try await apiService.fetchSources()
@@ -91,7 +129,8 @@ class SourceRepository: ObservableObject {
                         try source.save(db)
                     }
                 }
-                await MainActor.run { self.saveLastSyncTime() }
+                lastRefreshAttemptTime = Date()
+                saveLastSyncTime()
                 return fetchedSources
             } else {
                 // API returned empty, fall back to cached data

@@ -101,7 +101,7 @@ struct UnifiedMessageInputView: View {
         }
         .padding()
         .animation(.easeInOut(duration: 0.2), value: isCreateMode)
-        .onChange(of: dataManager.selectedSourceId) { newSourceId in
+        .onValueChange(of: dataManager.selectedSourceId) { newSourceId in
             // Update autocomplete manager when source changes (picker selection in create mode)
             if let sourceId = newSourceId {
                 let localPath = getLocalPath(for: sourceId)
@@ -111,7 +111,7 @@ struct UnifiedMessageInputView: View {
                 autocompleteManager.setActiveRepository(nil)
             }
         }
-        .onChange(of: session?.sourceContext?.source) { newSource in
+        .onValueChange(of: session?.sourceContext?.source) { newSource in
             // For existing sessions, use the session's source context
             if let sourceId = newSource {
                 let localPath = getLocalPath(for: sourceId)
@@ -153,7 +153,7 @@ struct UnifiedMessageInputView: View {
                     dataManager.ensureSourcesLoaded()
                 }
             }
-            .onChange(of: dataManager.sources) { newSources in
+            .onValueChange(of: dataManager.sources) { newSources in
                 if !newSources.isEmpty {
                     hasAttemptedSourceRefresh = false
                 }

@@ -55,7 +55,7 @@ class StickyStatusFlashManager: ObservableObject {
 
                 logger.info("Auto-dismissing sticky flash for session \(sessionId)")
                 withAnimation(.easeOut(duration: 0.3)) {
-                    self.flashMessages.removeValue(forKey: sessionId)
+                    let _ = self.flashMessages.removeValue(forKey: sessionId)
                 }
                 self.dismissalTasks.removeValue(forKey: sessionId)
             } catch is CancellationError {
@@ -112,7 +112,7 @@ class StickyStatusFlashManager: ObservableObject {
                 // Dismiss
                 logger.info("Completing flash sequence for session \(sessionId)")
                 withAnimation(.easeOut(duration: 0.3)) {
-                    self.flashMessages.removeValue(forKey: sessionId)
+                    let _ = self.flashMessages.removeValue(forKey: sessionId)
                 }
                 self.dismissalTasks.removeValue(forKey: sessionId)
             } catch is CancellationError {
@@ -130,7 +130,7 @@ class StickyStatusFlashManager: ObservableObject {
         dismissalTasks[sessionId]?.cancel()
         dismissalTasks.removeValue(forKey: sessionId)
         withAnimation(.easeOut(duration: 0.3)) {
-            flashMessages.removeValue(forKey: sessionId)
+            let _ = flashMessages.removeValue(forKey: sessionId)
         }
     }
 

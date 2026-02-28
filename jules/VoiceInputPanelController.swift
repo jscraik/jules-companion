@@ -265,14 +265,10 @@ final class VoiceInputPanelController {
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
 
         // Configure hosting controller
-        if #available(macOS 13.3, *) {
-            hostingController.safeAreaRegions = []
-        }
+        hostingController.safeAreaRegions = []
 
         // Enable automatic sizing based on SwiftUI content
-        if #available(macOS 13.0, *) {
-            hostingController.sizingOptions = [.preferredContentSize, .intrinsicContentSize]
-        }
+        hostingController.sizingOptions = [.preferredContentSize, .intrinsicContentSize]
 
         hostingController.view.wantsLayer = true
         hostingController.view.layer?.masksToBounds = false
@@ -301,7 +297,9 @@ final class VoiceInputPanelController {
             object: panel,
             queue: .main
         ) { [weak self] _ in
-            self?.hide()
+            Task { @MainActor [weak self] in
+                self?.hide()
+            }
         }
 
         // Also observe willClose to ensure cleanup happens even if panel is closed by the system
@@ -311,7 +309,9 @@ final class VoiceInputPanelController {
             object: panel,
             queue: .main
         ) { [weak self] _ in
-            self?.performCleanup()
+            Task { @MainActor [weak self] in
+                self?.performCleanup()
+            }
         }
     }
 

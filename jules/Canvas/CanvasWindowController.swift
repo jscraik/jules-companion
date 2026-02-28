@@ -36,7 +36,7 @@ class CanvasWindowController: NSWindowController, NSWindowDelegate, NSToolbarDel
     }
 
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        return nil
     }
 
     // MARK: - Tahoe Window Setup (macOS 26+)
@@ -138,8 +138,10 @@ class CanvasWindowController: NSWindowController, NSWindowDelegate, NSToolbarDel
             let toolbarItem = NSToolbarItem(itemIdentifier: itemIdentifier)
             if let hostingView = toolbarHostingView {
                 toolbarItem.view = hostingView
-                toolbarItem.minSize = NSSize(width: 200, height: CanvasToolbarView.toolbarHeight)
-                toolbarItem.maxSize = NSSize(width: 10000, height: CanvasToolbarView.toolbarHeight)
+                if #unavailable(macOS 12.0) {
+                    toolbarItem.minSize = NSSize(width: 200, height: CanvasToolbarView.toolbarHeight)
+                    toolbarItem.maxSize = NSSize(width: 10000, height: CanvasToolbarView.toolbarHeight)
+                }
             }
             return toolbarItem
         }

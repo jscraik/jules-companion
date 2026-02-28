@@ -68,8 +68,6 @@ class ConflictMarkerExpander {
         var result = content
         var offset = 0 // Track offset as we modify the string
 
-        let lines = content.components(separatedBy: "\n")
-
         for conflict in conflicts {
             // Calculate the byte range in the "ours" version for this conflict's content
             let oursLines = oursVersion.components(separatedBy: "\n")

@@ -1,5 +1,8 @@
 import Foundation
+import CryptoKit
+#if canImport(FirebaseAI)
 import FirebaseAI
+#endif
 
 // NB: Ensure corresponding Models are defined elsewhere.
 
@@ -81,11 +84,21 @@ class APIService {
     // in URLCache.shared, wasting memory since we always fetch fresh data.
     // By using a dedicated session with no caching, we save ~50-100MB over time.
     private let session: URLSession
-    // Shared JSON Decoder configured for date and key handling
-    private let decoder: JSONDecoder
-
     // API Key
-    var apiKey: String?
+    private var apiKeyStorage: String?
+    private let apiKeyLock = NSLock()
+    var apiKey: String? {
+        get {
+            apiKeyLock.withLock {
+                apiKeyStorage
+            }
+        }
+        set {
+            apiKeyLock.withLock {
+                apiKeyStorage = newValue
+            }
+        }
+    }
 
     /// Rate limiter for Gemini API calls to prevent quota exceeded errors.
     /// Firebase Vertex AI limits: 100 requests per minute per user per project.
@@ -93,8 +106,9 @@ class APIService {
 
     /// MEMORY FIX: Cache of response data hashes per session ID.
     /// Used to skip JSON decoding (~29MB) when activity data hasn't changed.
-    /// Key = sessionId, Value = hash of raw response data
-    private var activityResponseHashes: [String: Int] = [:]
+    /// Key = sessionId, Value = SHA-256 digest of raw response data.
+    private var activityResponseHashes: [String: String] = [:]
+    private let activityResponseHashesLock = NSLock()
 
     /// Result of activity fetch that may skip decoding if unchanged
     enum ActivityFetchResult {
@@ -114,16 +128,14 @@ class APIService {
             config.requestCachePolicy = .reloadIgnoringLocalCacheData
             self.session = URLSession(configuration: config)
         }
-        self.decoder = JSONDecoder()
+    }
 
-        // Configure a specific formatter for "YYYY-MM-DDTHH:MM:SS.SSSZ" or RFC3339
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ" // Explicit format
-        formatter.calendar = Calendar(identifier: .iso8601)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0) // 'Z' implies UTC
-
-        decoder.dateDecodingStrategy = .iso8601 // The new API uses ISO8601/RFC3339
+    /// JSONDecoder is not thread-safe. Build a fresh decoder per decode operation
+    /// so concurrent network requests can't race on shared decoder state.
+    private static func makeDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601 // API uses RFC3339/ISO8601 timestamps
+        return decoder
     }
 
     private func authenticatedURL(from urlString: String) -> URL? {
@@ -195,8 +207,8 @@ class APIService {
                 throw apiError
             }
 
-            // Decode the JSON data using the configured decoder
-            let decodedData = try decoder.decode(T.self, from: data)
+            // Decode using a fresh decoder (JSONDecoder is not thread-safe).
+            let decodedData = try Self.makeDecoder().decode(T.self, from: data)
             return decodedData
 
         } catch let decodingError as DecodingError {
@@ -345,18 +357,25 @@ class APIService {
         // Fetch raw data first (small memory footprint)
         let data = try await fetchRawData(from: urlString)
 
-        // Compute hash of response data
-        let newHash = data.hashValue
+        // Compute stable digest of response data.
+        // Using SHA-256 avoids false unchanged decisions from Int hash collisions.
+        let newHash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
 
         // Check if data has changed
-        if let cachedHash = activityResponseHashes[sessionId], cachedHash == newHash {
+        let cachedHash = activityResponseHashesLock.withLock {
+            activityResponseHashes[sessionId]
+        }
+
+        if let cachedHash, cachedHash == newHash {
             // Data unchanged - skip expensive JSON decoding
             return .unchanged
         }
 
         // Data changed - decode and update cache
-        let response = try decoder.decode(ListActivitiesResponse.self, from: data)
-        activityResponseHashes[sessionId] = newHash
+        let response = try Self.makeDecoder().decode(ListActivitiesResponse.self, from: data)
+        activityResponseHashesLock.withLock {
+            activityResponseHashes[sessionId] = newHash
+        }
 
         return .activities(response.activities ?? [])
     }
@@ -364,7 +383,17 @@ class APIService {
     /// Clears the activity response hash for a session.
     /// Call this when you want to force a re-fetch (e.g., after sending a message).
     func clearActivityCache(for sessionId: String) {
-        activityResponseHashes.removeValue(forKey: sessionId)
+        activityResponseHashesLock.withLock {
+            let _ = activityResponseHashes.removeValue(forKey: sessionId)
+        }
+    }
+
+    /// Clears all activity response digests.
+    /// Use when switching accounts/users to avoid cross-account cache contamination.
+    func clearAllActivityCaches() {
+        activityResponseHashesLock.withLock {
+            activityResponseHashes.removeAll()
+        }
     }
 
     // Fetches activities for multiple sessions concurrently with hash-based caching.
@@ -454,9 +483,8 @@ class APIService {
 
             if (200...299).contains(httpResponse.statusCode) {
                 // Parse the created session from the response
-                let decoder = JSONDecoder()
                 do {
-                    let createdSession = try decoder.decode(Session.self, from: data)
+                    let createdSession = try Self.makeDecoder().decode(Session.self, from: data)
                     print("✅ Session Created Successfully: \(createdSession.id)")
                     return createdSession
                 } catch {
@@ -552,6 +580,7 @@ class APIService {
             return nil
         }
 
+        #if canImport(FirebaseAI)
         // Wait for rate limit slot before making request
         await geminiRateLimiter.waitAndRecord()
 
@@ -593,6 +622,9 @@ class APIService {
             print("Gemini Error: \(error)")
         }
         return nil
+        #else
+        return nil
+        #endif
     }
 
     // MARK: - Gemini Prompt Constants

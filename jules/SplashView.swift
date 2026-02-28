@@ -122,7 +122,7 @@ struct SplashView: View {
                 isInputFocused = true
             }
         }
-        .onChange(of: apiKeyInput) { _, _ in
+        .onValueChange(of: apiKeyInput) { _ in
             // Clear error when user starts typing
             if errorMessage != nil {
                 errorMessage = nil

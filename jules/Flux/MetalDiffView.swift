@@ -132,11 +132,10 @@ class MetalDiffView: MTKView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        // Set NSAppearance.current so NSColor dynamic providers resolve correctly.
-        // Without this, colors like diffEditorBackground may resolve for the old appearance.
-        NSAppearance.current = effectiveAppearance
-        // Update clear color when appearance changes (light/dark mode toggle)
-        updateClearColor()
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            // Update clear color when appearance changes (light/dark mode toggle)
+            updateClearColor()
+        }
         // Use dedicated appearance change handler that also clears syntax color caches.
         // This ensures diff colors update when switching between light/dark mode.
         viewModel?.invalidateForAppearanceChange()
@@ -145,8 +144,9 @@ class MetalDiffView: MTKView {
         setNeedsDisplay(bounds)
     }
 
+    @available(*, unavailable)
     required init(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        fatalError("init(coder:) is unavailable")
     }
 
     // Input Handling

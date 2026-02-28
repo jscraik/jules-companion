@@ -49,55 +49,62 @@ struct UnifiedDiffPanel: NSViewRepresentable {
         context.coordinator.scrollView = scrollView
         context.coordinator.documentView = documentView
 
-        // Create and configure Metal view
-        guard let device = fluxSharedMetalDevice else {
-            fatalError("Metal not supported")
+        if let device = fluxSharedMetalDevice {
+            // Create and configure Metal view
+            let metalView = UnifiedMetalDiffView(device: device)
+            let viewModel = UnifiedDiffViewModel()
+            metalView.viewModel = viewModel
+
+            documentView.metalView = metalView
+            documentView.addSubview(metalView)
+
+            // Ensure scroll indicator is on top of metal view
+            documentView.bringScrollIndicatorToFront()
+
+            // Wire up horizontal scroll callback for scrollbar updates
+            metalView.onHorizontalScrollChanged = { [weak documentView] sectionIndex in
+                documentView?.notifyHorizontalScrollChanged(sectionIndex: sectionIndex)
+            }
+
+            // Wire up vertical auto-scroll callback for text selection drag
+            metalView.onVerticalAutoScroll = { [weak scrollView] delta in
+                guard let scrollView = scrollView else { return }
+                let visibleRect = scrollView.documentVisibleRect
+                let contentHeight = scrollView.documentView?.frame.height ?? 0
+
+                // Calculate new scroll position (clamped to valid range)
+                let newY = max(0, min(contentHeight - visibleRect.height, visibleRect.origin.y + delta))
+                let newOrigin = NSPoint(x: visibleRect.origin.x, y: newY)
+
+                scrollView.contentView.scroll(to: newOrigin)
+                scrollView.reflectScrolledClipView(scrollView.contentView)
+            }
+
+            context.coordinator.metalView = metalView
+            context.coordinator.viewModel = viewModel
+
+            // Set up scroll observation
+            scrollView.contentView.postsBoundsChangedNotifications = true
+            NotificationCenter.default.addObserver(
+                context.coordinator,
+                selector: #selector(Coordinator.scrollViewDidScroll(_:)),
+                name: NSView.boundsDidChangeNotification,
+                object: scrollView.contentView
+            )
+
+            // Initial content update
+            viewModel.updateContent(diffs: diffs, sessionId: sessionId)
+            documentView.updateDocumentSize()
+        } else {
+            // Graceful fallback for environments where Metal is unavailable.
+            let placeholder = NSTextField(labelWithString: "Diff preview unavailable: Metal is not supported on this device.")
+            placeholder.font = .systemFont(ofSize: 13)
+            placeholder.textColor = .secondaryLabelColor
+            placeholder.alignment = .center
+            placeholder.frame = NSRect(x: 16, y: 16, width: 600, height: 24)
+            documentView.addSubview(placeholder)
+            documentView.frame = NSRect(x: 0, y: 0, width: 600, height: 56)
         }
-
-        let metalView = UnifiedMetalDiffView(device: device)
-        let viewModel = UnifiedDiffViewModel()
-        metalView.viewModel = viewModel
-
-        documentView.metalView = metalView
-        documentView.addSubview(metalView)
-
-        // Ensure scroll indicator is on top of metal view
-        documentView.bringScrollIndicatorToFront()
-
-        // Wire up horizontal scroll callback for scrollbar updates
-        metalView.onHorizontalScrollChanged = { [weak documentView] sectionIndex in
-            documentView?.notifyHorizontalScrollChanged(sectionIndex: sectionIndex)
-        }
-
-        // Wire up vertical auto-scroll callback for text selection drag
-        metalView.onVerticalAutoScroll = { [weak scrollView] delta in
-            guard let scrollView = scrollView else { return }
-            let visibleRect = scrollView.documentVisibleRect
-            let contentHeight = scrollView.documentView?.frame.height ?? 0
-
-            // Calculate new scroll position (clamped to valid range)
-            let newY = max(0, min(contentHeight - visibleRect.height, visibleRect.origin.y + delta))
-            let newOrigin = NSPoint(x: visibleRect.origin.x, y: newY)
-
-            scrollView.contentView.scroll(to: newOrigin)
-            scrollView.reflectScrolledClipView(scrollView.contentView)
-        }
-
-        context.coordinator.metalView = metalView
-        context.coordinator.viewModel = viewModel
-
-        // Set up scroll observation
-        scrollView.contentView.postsBoundsChangedNotifications = true
-        NotificationCenter.default.addObserver(
-            context.coordinator,
-            selector: #selector(Coordinator.scrollViewDidScroll(_:)),
-            name: NSView.boundsDidChangeNotification,
-            object: scrollView.contentView
-        )
-
-        // Initial content update
-        viewModel.updateContent(diffs: diffs, sessionId: sessionId)
-        documentView.updateDocumentSize()
 
         return scrollView
     }
@@ -415,7 +422,7 @@ class HorizontalScrollIndicator: NSView {
     }
 
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        return nil
     }
 
     // MARK: - Public API
@@ -717,7 +724,7 @@ class UnifiedDiffDocumentView: NSView {
     }
 
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        return nil
     }
 
     deinit {

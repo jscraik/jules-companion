@@ -72,11 +72,20 @@ actor RateLimiter {
     /// Waits if necessary and then records a request.
     /// Use this for throttled requests that should wait rather than fail.
     func waitAndRecord() async {
-        let (canProceed, waitTime) = checkAvailability()
-        if !canProceed && waitTime > 0 {
-            try? await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
+        while true {
+            let (canProceed, waitTime) = checkAvailability()
+            if canProceed {
+                recordRequest()
+                return
+            }
+
+            if waitTime > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(waitTime * 1_000_000_000))
+            } else {
+                // Avoid a tight spin loop if the computed wait time rounds to zero.
+                await Task.yield()
+            }
         }
-        recordRequest()
     }
 
     /// Returns the number of remaining requests available in the current window.
@@ -110,7 +119,9 @@ actor PriorityAsyncSemaphore {
             return
         }
 
-        // Wait for a slot to become available
+        // Wait for a slot to become available.
+        // IMPORTANT: When resumed from the queue, the slot has already been
+        // transferred by release(), so do not increment currentCount here.
         await withCheckedContinuation { continuation in
             if priority {
                 priorityWaiters.append(continuation)
@@ -118,21 +129,33 @@ actor PriorityAsyncSemaphore {
                 regularWaiters.append(continuation)
             }
         }
-        currentCount += 1
     }
 
     /// Releases a slot, allowing a waiting operation to proceed.
     /// Priority waiters are resumed before regular waiters.
     func release() {
-        currentCount -= 1
-        // Priority waiters get served first
+        guard currentCount > 0 else {
+            #if DEBUG
+            print("⚠️ PriorityAsyncSemaphore.release() ignored (no active operations)")
+            #endif
+            return
+        }
+
+        // Priority waiters get served first.
+        // If a waiter exists, transfer the slot directly (active count unchanged).
         if let waiter = priorityWaiters.first {
             priorityWaiters.removeFirst()
             waiter.resume()
-        } else if let waiter = regularWaiters.first {
+            return
+        }
+        if let waiter = regularWaiters.first {
             regularWaiters.removeFirst()
             waiter.resume()
+            return
         }
+
+        // No waiters: fully release the slot.
+        currentCount -= 1
     }
 
     /// Returns the number of currently active operations.

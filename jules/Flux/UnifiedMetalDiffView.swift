@@ -2,6 +2,18 @@ import Cocoa
 import MetalKit
 import Combine
 
+@inline(__always)
+private func withCurrentDrawingAppearance<T>(_ appearance: NSAppearance, _ body: () -> T) -> T {
+    var result: T?
+    appearance.performAsCurrentDrawingAppearance {
+        result = body()
+    }
+    guard let result else {
+        fatalError("Drawing appearance callback did not execute")
+    }
+    return result
+}
+
 /// A single Metal view that renders all diff content for all files.
 /// This replaces the multi-tile approach with one unified rendering surface.
 @MainActor
@@ -87,12 +99,29 @@ class UnifiedMetalDiffView: MTKView {
 
     init(device: MTLDevice) {
         super.init(frame: .zero, device: device)
+        configureView()
+    }
+
+    required init(coder: NSCoder) {
+        super.init(coder: coder)
+        configureView()
+    }
+
+    private func configureView() {
+        if self.device == nil {
+            self.device = MTLCreateSystemDefaultDevice()
+        }
 
         self.colorPixelFormat = .bgra8Unorm
         updateClearColor()
 
-        self.renderer = FluxRenderer(device: device)
-        self.delegate = renderer
+        if let device = self.device {
+            self.renderer = FluxRenderer(device: device)
+            self.delegate = renderer
+        } else {
+            self.renderer = nil
+            self.delegate = nil
+        }
 
         // Manual drawing for efficiency
         self.isPaused = true
@@ -125,10 +154,6 @@ class UnifiedMetalDiffView: MTKView {
         // The parent UnifiedDiffDocumentView handles that notification and updates our frame,
         // which triggers our layout() method naturally. Having both observe the notification
         // was causing redundant re-renders.
-    }
-
-    required init(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
     }
 
     // MARK: - ViewModel Subscription
@@ -181,10 +206,9 @@ class UnifiedMetalDiffView: MTKView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        // Set NSAppearance.current so NSColor dynamic providers resolve correctly.
-        // Without this, colors like diffEditorBackground may resolve for the old appearance.
-        NSAppearance.current = effectiveAppearance
-        updateClearColor()
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            updateClearColor()
+        }
         // Use dedicated appearance change handler that clears caches and triggers re-render.
         // The view model will send objectWillChange which triggers renderUpdate() via our
         // Combine subscription. This ensures proper instance regeneration before drawing.
@@ -254,11 +278,9 @@ class UnifiedMetalDiffView: MTKView {
             viewModel.setViewport(top: currentScrollY, height: bounds.height, width: bounds.width)
         }
 
-        // Set NSAppearance.current so NSColor dynamic providers resolve correctly.
-        // This is critical for background colors in generateInstances().
-        NSAppearance.current = effectiveAppearance
-
-        let result = viewModel.generateInstances(renderer: renderer)
+        let result = withCurrentDrawingAppearance(effectiveAppearance) {
+            viewModel.generateInstances(renderer: renderer)
+        }
 
         // Only update GPU buffers if instances actually changed (cache miss)
         // This prevents redundant GPU uploads when multiple renderUpdate calls
@@ -589,7 +611,7 @@ class UnifiedMetalDiffView: MTKView {
 
         // Handle double-click to select entire line
         if event.clickCount == 2 && !isDragging {
-            guard let viewModel = viewModel, let renderer = renderer else { return }
+            guard let viewModel = viewModel else { return }
 
             let point = convert(event.locationInWindow, from: nil)
             let flippedY = Float(bounds.height - point.y)

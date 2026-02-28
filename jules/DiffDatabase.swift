@@ -46,7 +46,26 @@ struct DiffDatabase {
             try migrator.migrate(dbPool)
             return dbPool
         } catch {
-            fatalError("Failed to create diff database: \(error)")
+            // Fallback to in-memory DB to avoid launch crashes on filesystem errors.
+            print("⚠️ DiffDatabase disk initialization failed, falling back to in-memory DB: \(error)")
+            do {
+                let dbPool = try DatabasePool(path: ":memory:")
+                try migrator.migrate(dbPool)
+                return dbPool
+            } catch {
+                // Last-resort fallback: keep app alive with an empty in-memory DB.
+                print("⚠️ DiffDatabase in-memory migration failed, returning bare in-memory DB: \(error)")
+                if let bareInMemory = try? DatabasePool(path: ":memory:") {
+                    return bareInMemory
+                }
+
+                let tempPath = NSTemporaryDirectory().appending("/jules-diff-fallback.sqlite")
+                if let tempPool = try? DatabasePool(path: tempPath) {
+                    return tempPool
+                }
+
+                fatalError("Failed to create diff database (all fallback database creations failed)")
+            }
         }
     }
 
@@ -109,7 +128,7 @@ extension DiffDatabase {
 
             // Insert new diffs
             for (index, diff) in diffs.enumerated() {
-                var record = DiffRecord(
+                let record = DiffRecord(
                     sessionId: sessionId,
                     patch: diff.patch,
                     language: diff.language,
@@ -157,7 +176,7 @@ extension DiffDatabase {
     static func deleteDiffs(forSession sessionId: String) {
         do {
             try shared.write { db in
-                try DiffRecord.filter(DiffRecord.Columns.sessionId == sessionId).deleteAll(db)
+                _ = try DiffRecord.filter(DiffRecord.Columns.sessionId == sessionId).deleteAll(db)
             }
         } catch {
             print("[DiffDatabase] Error deleting diffs for session \(sessionId): \(error)")
@@ -169,7 +188,7 @@ extension DiffDatabase {
         guard !sessionIds.isEmpty else { return }
         do {
             try shared.write { db in
-                try DiffRecord.filter(sessionIds.contains(DiffRecord.Columns.sessionId)).deleteAll(db)
+                _ = try DiffRecord.filter(sessionIds.contains(DiffRecord.Columns.sessionId)).deleteAll(db)
             }
         } catch {
             print("[DiffDatabase] Error deleting diffs for sessions: \(error)")
@@ -181,7 +200,7 @@ extension DiffDatabase {
         guard !validSessionIds.isEmpty else { return }
         do {
             try shared.write { db in
-                try DiffRecord.filter(!validSessionIds.contains(DiffRecord.Columns.sessionId)).deleteAll(db)
+                _ = try DiffRecord.filter(!validSessionIds.contains(DiffRecord.Columns.sessionId)).deleteAll(db)
             }
         } catch {
             print("[DiffDatabase] Error during cleanup: \(error)")

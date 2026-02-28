@@ -33,7 +33,20 @@ class DiffMetalView: NSView {
 
     /// The Metal layer backing this view
     var metalLayer: CAMetalLayer {
-        return layer as! CAMetalLayer
+        if let metalLayer = layer as? CAMetalLayer {
+            return metalLayer
+        }
+
+        // Defensive recovery: if an unexpected layer was installed, replace it
+        // with a correctly configured CAMetalLayer instead of crashing.
+        let recoveredLayer = CAMetalLayer()
+        recoveredLayer.device = device
+        recoveredLayer.pixelFormat = .bgra8Unorm
+        recoveredLayer.framebufferOnly = true
+        recoveredLayer.contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        recoveredLayer.isOpaque = false
+        layer = recoveredLayer
+        return recoveredLayer
     }
 
     /// The renderer responsible for drawing
@@ -134,9 +147,7 @@ class DiffMetalView: NSView {
 
     required init?(coder: NSCoder) {
         // Use shared Metal device to avoid context leaks (msgtracer error)
-        guard let device = fluxSharedMetalDevice else {
-            fatalError("Metal is not supported on this device")
-        }
+        guard let device = fluxSharedMetalDevice else { return nil }
         self.device = device
         super.init(coder: coder)
         commonInit()
@@ -355,10 +366,9 @@ class DiffMetalView: NSView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        // Set NSAppearance.current so NSColor dynamic providers resolve correctly.
-        // Without this, colors like diffEditorBackground may resolve for the old appearance.
-        NSAppearance.current = effectiveAppearance
-        updateClearColor()
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            updateClearColor()
+        }
         // Use dedicated appearance change handler that also clears syntax color caches.
         // This ensures diff colors update when switching between light/dark mode.
         viewModel?.invalidateForAppearanceChange()

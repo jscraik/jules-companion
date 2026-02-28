@@ -193,13 +193,13 @@ struct TrajectoryView: View {
         .onAppear {
             updateLoaderState()
         }
-        .onChange(of: liveSession?.state) { _ in
+        .onValueChange(of: liveSession?.state) { _ in
             updateLoaderState()
         }
-        .onChange(of: liveSession?.hasDiffsAvailable) { _ in
+        .onValueChange(of: liveSession?.hasDiffsAvailable) { _ in
             updateLoaderState()
         }
-        .onChange(of: session?.id) { newId in
+        .onValueChange(of: session?.id) { newId in
             // Immediately hide loader when session changes - don't animate
             // The closing animation should only apply when the SAME session
             // transitions from "loading" to "has diffs", not when paginating
@@ -278,7 +278,7 @@ struct TrajectoryView: View {
                     // NOTE: lastRenderedSessionId is updated in the main body's onChange handler.
                     // Don't update it here to avoid potential double-updates and extra renders.
                 }
-                .onChange(of: diffs.count) { _ in
+                .onValueChange(of: diffs.count) { _ in
                     if !diffs.isEmpty {
                         precomputeDiffsIfNeeded(sessionId: session.id, diffs: diffs)
                     }

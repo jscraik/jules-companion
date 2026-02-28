@@ -280,7 +280,7 @@ struct TahoeSessionView: View {
                     dataManager.ensureActivities(for: session)
                 }
             }
-            .onChange(of: selectionState.selectedSessionId) { newSessionId in
+            .onValueChange(of: selectionState.selectedSessionId) { newSessionId in
                 // Defer state updates to next run loop to prevent multiple updates per frame
                 // when quickly paginating through sessions
                 Task { @MainActor in

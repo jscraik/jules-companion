@@ -47,7 +47,7 @@ struct RecentTasksListView: View {
                 dataManager.ensureSessionsLoaded()
             }
         }
-        .onChange(of: dataManager.recentSessions) { newSessions in
+        .onValueChange(of: dataManager.recentSessions) { newSessions in
             // Reset the refresh attempt flag if sessions become available
             if !newSessions.isEmpty {
                 hasAttemptedSessionRefresh = false
@@ -192,7 +192,7 @@ struct RecentTasksListView: View {
                             }
                         }
                 )
-                .onChange(of: selectedIndex) { newIndex in
+                .onValueChange(of: selectedIndex) { newIndex in
                     // Scroll to selected item
                     if let index = newIndex, index < filteredSessions.count {
                         withAnimation(.easeInOut(duration: 0.15)) {

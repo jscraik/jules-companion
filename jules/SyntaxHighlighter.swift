@@ -250,5 +250,3 @@ struct StyleSpan: Sendable {
     let range: NSRange
     let color: NSColor
 }
-
-extension NSColor: @unchecked Sendable {}

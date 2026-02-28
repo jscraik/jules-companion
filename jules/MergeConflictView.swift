@@ -47,7 +47,7 @@ struct MergeConflictView: View {
             viewModel.language = language
             viewModel.updateContent(text)
         }
-        .onChange(of: text) { newValue in
+        .onValueChange(of: text) { newValue in
             viewModel.updateContent(newValue)
         }
     }
@@ -72,15 +72,12 @@ struct MergeConflictView: View {
         let lines = text.components(separatedBy: "\n")
         var newLines: [String] = []
 
-        var lineIndex = 0
         var skipUntilEnd = false
-        var inConflict = false
         var currentConflictIndex = 0
 
         for line in lines {
             if line.hasPrefix("<<<<<<<") {
                 if currentConflictIndex == index {
-                    inConflict = true
                     skipUntilEnd = true
                     // Add the resolved content
                     newLines.append(contentsOf: resolvedContent.components(separatedBy: "\n"))
@@ -90,11 +87,9 @@ struct MergeConflictView: View {
                 currentConflictIndex += 1
             } else if line.hasPrefix(">>>>>>>") && skipUntilEnd {
                 skipUntilEnd = false
-                inConflict = false
             } else if !skipUntilEnd {
                 newLines.append(line)
             }
-            lineIndex += 1
         }
 
         text = newLines.joined(separator: "\n")

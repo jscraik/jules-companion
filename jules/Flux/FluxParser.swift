@@ -38,6 +38,24 @@ class FluxParser {
     private static var appearanceObserver: NSObjectProtocol?
     private static let colorCacheLock = NSLock() // Protects colorCache, colorCacheInitialized, cachedAppearanceMode
 
+    private static func logMemoryFromAnyContext(_ message: String) {
+        Task { @MainActor in
+            LoadingProfiler.shared.logMemory(message)
+        }
+    }
+
+    private static func startMemoryTraceFromAnyContext(_ label: String) {
+        Task { @MainActor in
+            LoadingProfiler.shared.startMemoryTrace(label)
+        }
+    }
+
+    private static func endMemoryTraceFromAnyContext(_ label: String) {
+        Task { @MainActor in
+            LoadingProfiler.shared.endMemoryTrace(label)
+        }
+    }
+
     init() {
         // Set up appearance change observer once
         FluxParser.setupAppearanceObserver()
@@ -74,18 +92,17 @@ class FluxParser {
     /// This method parses the entire content at once for better accuracy (handles multi-line constructs).
     /// Returns: Dictionary mapping line index (0-based) to array of StyledTokens with ranges relative to that line.
     func parseFullContent(text: String, languageName: String) -> [Int: [StyledToken]] {
-        let profiler = LoadingProfiler.shared
         let textSizeKB = Double(text.utf8.count) / 1024
         let shouldProfile = LoadingProfiler.memoryProfilingEnabled && textSizeKB > 5 // Only profile larger texts
 
         if shouldProfile {
-            profiler.startMemoryTrace("FluxParser.parseFullContent(\(String(format: "%.1f", textSizeKB))KB, \(languageName))")
+            FluxParser.startMemoryTraceFromAnyContext("FluxParser.parseFullContent(\(String(format: "%.1f", textSizeKB))KB, \(languageName))")
         }
 
         // Try tree-sitter first
         if let result = parseFullContentWithTreeSitter(text: text, languageName: languageName), !result.isEmpty {
             if shouldProfile {
-                profiler.endMemoryTrace("FluxParser.parseFullContent(\(String(format: "%.1f", textSizeKB))KB, \(languageName))")
+                FluxParser.endMemoryTraceFromAnyContext("FluxParser.parseFullContent(\(String(format: "%.1f", textSizeKB))KB, \(languageName))")
             }
             return result
         }
@@ -101,7 +118,7 @@ class FluxParser {
         }
 
         if shouldProfile {
-            profiler.endMemoryTrace("FluxParser.parseFullContent(\(String(format: "%.1f", textSizeKB))KB, \(languageName))")
+            FluxParser.endMemoryTraceFromAnyContext("FluxParser.parseFullContent(\(String(format: "%.1f", textSizeKB))KB, \(languageName))")
         }
         return result
     }
@@ -156,7 +173,7 @@ class FluxParser {
 
         let detailedMemoryLogging = LoadingProfiler.memoryProfilingEnabled && textSizeKB > 5
         if detailedMemoryLogging {
-            LoadingProfiler.shared.logMemory("  [FluxParser] Before tree-sitter parse")
+            FluxParser.logMemoryFromAnyContext("  [FluxParser] Before tree-sitter parse")
         }
 
         guard let tree = parser.parse(text) else {
@@ -164,7 +181,7 @@ class FluxParser {
         }
 
         if detailedMemoryLogging {
-            LoadingProfiler.shared.logMemory("  [FluxParser] After tree-sitter parse (AST created)")
+            FluxParser.logMemoryFromAnyContext("  [FluxParser] After tree-sitter parse (AST created)")
         }
 
         let cursor = query.execute(in: tree)
@@ -279,7 +296,7 @@ class FluxParser {
         }
 
         if detailedMemoryLogging {
-            LoadingProfiler.shared.logMemory("  [FluxParser] After collecting \(allCaptures.count) captures")
+            FluxParser.logMemoryFromAnyContext("  [FluxParser] After collecting \(allCaptures.count) captures")
         }
 
         // OPTIMIZATION: Filter overlapping captures with sorted intervals for O(log n) lookup
@@ -360,7 +377,7 @@ class FluxParser {
         allCaptures = []
 
         if detailedMemoryLogging {
-            LoadingProfiler.shared.logMemory("  [FluxParser] After filtering to \(filteredCaptures.count) captures")
+            FluxParser.logMemoryFromAnyContext("  [FluxParser] After filtering to \(filteredCaptures.count) captures")
         }
 
         // Process the filtered captures - look up colors now (deferred allocation)
@@ -407,7 +424,7 @@ class FluxParser {
 
         if detailedMemoryLogging {
             let totalTokens = result.values.reduce(0) { $0 + $1.count }
-            LoadingProfiler.shared.logMemory("  [FluxParser] After building result dict (\(result.count) lines, \(totalTokens) tokens)")
+            FluxParser.logMemoryFromAnyContext("  [FluxParser] After building result dict (\(result.count) lines, \(totalTokens) tokens)")
         }
 
         // Explicitly release tree-sitter objects to help ARC
@@ -1202,7 +1219,7 @@ class FluxParser {
             currentIsDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .vibrantDark]) != nil
         } else {
             // Use cached value if available
-            if let cached = cachedAppearanceMode, colorCacheInitialized {
+            if cachedAppearanceMode != nil, colorCacheInitialized {
                 // Cache is already initialized with correct appearance, no need to check again
                 return
             }

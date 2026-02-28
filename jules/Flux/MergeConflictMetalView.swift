@@ -10,6 +10,18 @@ import Cocoa
 import MetalKit
 import Combine
 
+@inline(__always)
+private func withCurrentDrawingAppearance<T>(_ appearance: NSAppearance, _ body: () -> T) -> T {
+    var result: T?
+    appearance.performAsCurrentDrawingAppearance {
+        result = body()
+    }
+    guard let result else {
+        fatalError("Drawing appearance callback did not execute")
+    }
+    return result
+}
+
 /// A Metal view that renders merge conflict content with syntax highlighting.
 @MainActor
 class MergeConflictMetalView: MTKView {
@@ -106,8 +118,9 @@ class MergeConflictMetalView: MTKView {
         }
     }
 
+    @available(*, unavailable)
     required init(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        fatalError("init(coder:) is unavailable")
     }
 
     // MARK: - ViewModel Subscription
@@ -147,10 +160,9 @@ class MergeConflictMetalView: MTKView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        // Set NSAppearance.current so NSColor dynamic providers resolve correctly.
-        // Without this, colors like diffEditorBackground may resolve for the old appearance.
-        NSAppearance.current = effectiveAppearance
-        updateClearColor()
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            updateClearColor()
+        }
         // Use dedicated appearance change handler that clears caches and triggers re-render.
         // The view model will send objectWillChange which triggers renderUpdate() via our
         // Combine subscription. This ensures proper instance regeneration before drawing.
@@ -205,11 +217,9 @@ class MergeConflictMetalView: MTKView {
             viewModel.setViewport(top: currentScrollY, height: bounds.height, width: bounds.width)
         }
 
-        // Set NSAppearance.current so NSColor dynamic providers resolve correctly.
-        // This is critical for background colors in generateInstances().
-        NSAppearance.current = effectiveAppearance
-
-        let result = viewModel.generateInstances(renderer: renderer)
+        let result = withCurrentDrawingAppearance(effectiveAppearance) {
+            viewModel.generateInstances(renderer: renderer)
+        }
 
         // Only update GPU buffers if instances changed
         if !result.isCacheHit {

@@ -203,11 +203,21 @@ struct CenteredHeaderView: View {
 
             Spacer()
 
-            SettingsLink {
-                Image(systemName: "gearshape.fill")
-                    .foregroundColor(AppColors.textSecondary)
+            if #available(macOS 14.0, *) {
+                SettingsLink {
+                    Image(systemName: "gearshape.fill")
+                        .foregroundColor(AppColors.textSecondary)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button(action: {
+                    NotificationCenter.default.post(name: .openSettings, object: nil)
+                }) {
+                    Image(systemName: "gearshape.fill")
+                        .foregroundColor(AppColors.textSecondary)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, horizontalPadding)
         .padding(.top, verticalPadding)
@@ -332,7 +342,7 @@ struct CenteredTaskFormView: View {
                     .padding(.top, 130) // Position below text editor (minHeight 120 + buffer)
             }
         }
-        .onChange(of: dataManager.selectedSourceId) { newSourceId in
+        .onValueChange(of: dataManager.selectedSourceId) { newSourceId in
             if let sourceId = newSourceId {
                 let localPath = getLocalPath(for: sourceId)
                 autocompleteManager.registerRepository(repositoryId: sourceId, localPath: localPath)
@@ -341,7 +351,7 @@ struct CenteredTaskFormView: View {
                 autocompleteManager.setActiveRepository(nil)
             }
         }
-        .onChange(of: dataManager.draftImageAttachment) { newImage in
+        .onValueChange(of: dataManager.draftImageAttachment) { newImage in
             if let image = newImage, localImageAttachment == nil {
                 localImageAttachment = image
                 dataManager.clearDraftImageAttachment()
@@ -455,7 +465,7 @@ struct CenteredRecentTasksListView: View {
                         }
                     }
                     .frame(height: CGFloat(visibleRowCount) * rowHeight)
-                    .onChange(of: selectedIndex) { newIndex in
+                    .onValueChange(of: selectedIndex) { newIndex in
                         if let index = newIndex, index < dataManager.recentSessions.count {
                             withAnimation(.easeInOut(duration: 0.15)) {
                                 proxy.scrollTo(dataManager.recentSessions[index].id, anchor: .center)
@@ -613,4 +623,3 @@ struct CenteredRecentTaskRow: View {
         return currentSession.state.displayName
     }
 }
-

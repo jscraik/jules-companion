@@ -4,8 +4,10 @@ import Combine
 import UserNotifications
 import HotKey
 import Sparkle
+#if canImport(FirebaseCore) && canImport(FirebaseAppCheck)
 import FirebaseCore
 import FirebaseAppCheck
+#endif
 
 // MARK: - Configuration
 // Set these values to enable optional features.
@@ -59,7 +61,7 @@ class KeyablePanel: NSPanel {
 }
 
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, NSMenuItemValidation {
+class AppDelegate: NSObject, NSApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate, NSMenuItemValidation {
 
     private var hotKey: HotKey?
     private var screenshotHotKey: HotKey?
@@ -138,6 +140,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         // Initialize Firebase if enabled
         if ENABLE_FIREBASE {
+            #if canImport(FirebaseCore) && canImport(FirebaseAppCheck)
             #if DEBUG
             let providerFactory = AppCheckDebugProviderFactory()
             print("🛡️ Firebase App Check: Using Debug Provider")
@@ -149,6 +152,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             FirebaseApp.configure()
             #if DEBUG
             print("✅ Firebase initialized")
+            #endif
+            #else
+            #if DEBUG
+            print("⚠️ ENABLE_FIREBASE is true but Firebase frameworks are unavailable; skipping Firebase init")
+            #endif
             #endif
         }
 
@@ -211,12 +219,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         )
 
         // Listen for open settings notification
-        NotificationCenter.default.addObserver(forName: .openSettings, object: nil, queue: .main) { [weak self] _ in
-            // Must use Task to properly dispatch to MainActor since handleOpenSettings is @MainActor
-            Task { @MainActor in
-                self?.handleOpenSettings()
-            }
-        }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleOpenSettingsNotification(_:)),
+            name: .openSettings,
+            object: nil
+        )
 
         // Listen for settings window close notification
         NotificationCenter.default.addObserver(
@@ -303,6 +311,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         // Trigger the SwiftUI Settings scene
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    }
+
+    @objc nonisolated private func handleOpenSettingsNotification(_ notification: Notification) {
+        Task { @MainActor [weak self] in
+            self?.handleOpenSettings()
+        }
     }
 
     @MainActor @objc func settingsWindowWillClose() {
@@ -1378,4 +1392,3 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
 }
-

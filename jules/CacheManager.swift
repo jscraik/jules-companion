@@ -49,7 +49,7 @@ class CacheManager {
         }
 
         // 2. Clear UserDefaults (except API key)
-        clearUserDefaults()
+        await clearUserDefaults()
 
         // 3. Reset font sizes to defaults
         FontSizeManager.shared.resetToDefaults()
@@ -79,21 +79,21 @@ class CacheManager {
     }
 
     /// Clears all UserDefaults keys except the API key
-    private func clearUserDefaults() {
+    private func clearUserDefaults() async {
         let defaults = UserDefaults.standard
         for key in userDefaultsKeysToClear {
             defaults.removeObject(forKey: key)
         }
 
         // Also clear dynamic file path cache keys
-        clearFilePathCacheKeys()
+        await clearFilePathCacheKeys()
 
         defaults.synchronize()
     }
 
     /// Clears all file path cache keys (dynamic keys prefixed with FilePathCache_ and FilePathCacheScanState_)
     /// Also clears file path data from the database
-    private func clearFilePathCacheKeys() {
+    private func clearFilePathCacheKeys() async {
         let defaults = UserDefaults.standard
         let allKeys = defaults.dictionaryRepresentation().keys
 
@@ -112,16 +112,15 @@ class CacheManager {
             defaults.removeObject(forKey: key)
         }
 
-        // Clear file path data from database
-        Task {
-            do {
-                try await dbPool.write { db in
-                    try? db.execute(sql: "DELETE FROM filePath")
-                    try? db.execute(sql: "DELETE FROM repositoryScanState")
-                }
-            } catch {
-                print("Error clearing file path cache from database: \(error)")
+        // Clear file path data from database before returning so callers can rely
+        // on cache clear completion ordering.
+        do {
+            try await dbPool.write { db in
+                try? db.execute(sql: "DELETE FROM filePath")
+                try? db.execute(sql: "DELETE FROM repositoryScanState")
             }
+        } catch {
+            print("Error clearing file path cache from database: \(error)")
         }
     }
 

@@ -124,12 +124,14 @@ class OptimizedSplitViewController: NSSplitViewController {
             sidebarItem.animator().isCollapsed.toggle()
 
         }, completionHandler: { [weak self] in
-            guard let self = self else { return }
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
 
-            self.isAnimating = false
+                self.isAnimating = false
 
-            // Notify observers that animation completed
-            NotificationCenter.default.post(name: .sidebarAnimationDidEnd, object: self)
+                // Notify observers that animation completed
+                NotificationCenter.default.post(name: .sidebarAnimationDidEnd, object: self)
+            }
         })
     }
 

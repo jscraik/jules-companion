@@ -59,7 +59,6 @@ struct WaveUniforms {
 
 // MARK: - Constants
 
-constant float PI = 3.14159265359;
 constant float TWO_PI = 6.28318530718;
 
 // MARK: - Gerstner Wave Functions

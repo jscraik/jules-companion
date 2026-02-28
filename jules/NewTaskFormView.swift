@@ -46,10 +46,10 @@ struct NewTaskFormView: View {
             textEditorStack
         }
         .padding(.horizontal, horizontalPadding)
-        .onChange(of: dataManager.selectedSourceId) { newSourceId in
+        .onValueChange(of: dataManager.selectedSourceId) { newSourceId in
             handleSourceChange(newSourceId)
         }
-        .onChange(of: dataManager.draftImageAttachment) { newImage in
+        .onValueChange(of: dataManager.draftImageAttachment) { newImage in
             // Sync image attachment from DataManager (e.g., from screenshot hotkey)
             if let image = newImage, localImageAttachment == nil {
                 localImageAttachment = image
@@ -163,7 +163,7 @@ struct NewTaskFormView: View {
                             dataManager.ensureSourcesLoaded()
                         }
                     }
-                    .onChange(of: dataManager.sources) { newSources in
+                    .onValueChange(of: dataManager.sources) { newSources in
                         if !newSources.isEmpty {
                             hasAttemptedSourceRefresh = false
                         }

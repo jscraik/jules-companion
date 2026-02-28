@@ -514,11 +514,12 @@ class LocalMergeManager {
         }
     }
 
-    /// Count the number of files with conflicts by checking each file individually
-    /// Returns the number of files that would have conflicts when applying the patch
-    /// Returns nil if no repo is configured (optimistically assume no conflicts)
-    /// Note: This uses the same logic as generateConflictFiles() to ensure consistency
-    func countConflicts(session: Session, sourceId: String) -> Int? {
+    /// Count the number of files with conflicts by checking each file individually.
+    /// Heavy patch checks are performed off the main actor to avoid UI stalls.
+    /// Returns the number of files that would have conflicts when applying the patch.
+    /// Returns nil if no repo is configured (optimistically assume no conflicts).
+    /// Note: This uses the same logic as generateConflictFiles() to ensure consistency.
+    func countConflicts(session: Session, sourceId: String) async -> Int? {
         guard let diffs = session.latestDiffs, !diffs.isEmpty else {
             return 0
         }
@@ -528,53 +529,59 @@ class LocalMergeManager {
             return nil
         }
 
-        guard repoURL.startAccessingSecurityScopedResource() else {
-            return nil // Can't access, return nil to indicate unknown
-        }
-        defer { repoURL.stopAccessingSecurityScopedResource() }
+        return await Task.detached(priority: .utility) {
+            guard repoURL.startAccessingSecurityScopedResource() else {
+                return nil // Can't access, return nil to indicate unknown
+            }
+            defer { repoURL.stopAccessingSecurityScopedResource() }
 
-        let patchEngine = PatchEngine()
-        var conflictCount = 0
+            let patchEngine = PatchEngine()
+            var conflictCount = 0
 
-        // Check each file's patch individually, using same criteria as generateConflictFiles()
-        for diff in diffs {
-            do {
-                try patchEngine.apply(patch: diff.patch, to: repoURL.path, checkOnly: true)
-                // This file can be applied cleanly
-                continue
-            } catch {
-                // This file has conflicts - but only count if it would be displayable
+            // Check each file's patch individually, using same criteria as generateConflictFiles()
+            for diff in diffs {
+                if Task.isCancelled {
+                    return nil
+                }
+
+                do {
+                    try patchEngine.apply(patch: diff.patch, to: repoURL.path, checkOnly: true)
+                    // This file can be applied cleanly
+                    continue
+                } catch {
+                    // This file has conflicts - but only count if it would be displayable
+                }
+
+                // Must have a filename
+                guard let filename = diff.filename else {
+                    #if DEBUG
+                    print("[LocalMergeManager] countConflicts: skipping diff with no filename")
+                    #endif
+                    continue
+                }
+
+                // File must exist locally and be readable
+                let filePath = repoURL.appendingPathComponent(filename)
+                guard FileManager.default.fileExists(atPath: filePath.path) else {
+                    #if DEBUG
+                    print("[LocalMergeManager] countConflicts: skipping '\(filename)' - file does not exist locally")
+                    #endif
+                    continue
+                }
+
+                // Diff must be parseable
+                let parsed = LegacyPatchParser.parse(diff: diff.patch)
+                guard parsed.files.first != nil else {
+                    #if DEBUG
+                    print("[LocalMergeManager] countConflicts: skipping '\(filename)' - failed to parse diff")
+                    #endif
+                    continue
+                }
+
+                conflictCount += 1
             }
 
-            // Must have a filename
-            guard let filename = diff.filename else {
-                #if DEBUG
-                print("[LocalMergeManager] countConflicts: skipping diff with no filename")
-                #endif
-                continue
-            }
-
-            // File must exist locally and be readable
-            let filePath = repoURL.appendingPathComponent(filename)
-            guard FileManager.default.fileExists(atPath: filePath.path) else {
-                #if DEBUG
-                print("[LocalMergeManager] countConflicts: skipping '\(filename)' - file does not exist locally")
-                #endif
-                continue
-            }
-
-            // Diff must be parseable
-            let parsed = LegacyPatchParser.parse(diff: diff.patch)
-            guard parsed.files.first != nil else {
-                #if DEBUG
-                print("[LocalMergeManager] countConflicts: skipping '\(filename)' - failed to parse diff")
-                #endif
-                continue
-            }
-
-            conflictCount += 1
-        }
-
-        return conflictCount
+            return conflictCount
+        }.value
     }
 }

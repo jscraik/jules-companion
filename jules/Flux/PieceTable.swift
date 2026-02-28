@@ -92,7 +92,7 @@ struct PieceTable {
     mutating func delete(at index: Int, length: Int) {
         if length == 0 { return }
         var remainingToDelete = length
-        var currentIndex = index
+        let currentIndex = index
 
         var spanIdx = 0
         var offset = 0
@@ -170,9 +170,6 @@ struct PieceTable {
             let span = pieceTable.spans[spanIndex]
             let buffer = (span.source == .original) ? pieceTable.originalBuffer : pieceTable.addedBuffer
 
-            // Get the UTF-8 view
-            let utf8 = buffer.utf8
-
             // Calculate the byte range for this span
             let startIndex = buffer.index(buffer.startIndex, offsetBy: span.start)
             let endIndex = buffer.index(startIndex, offsetBy: span.length)
@@ -228,7 +225,6 @@ struct PieceTable {
         result.reserveCapacity(length)
 
         var remaining = length
-        var currentOffset = 0
         var skipChars = start
 
         for span in spans {

@@ -36,19 +36,27 @@ struct SessionToolbarActionsView: View {
     private func checkForConflicts(session: Session) {
         // Skip if we already checked this session
         guard lastCheckedSessionId != session.id else { return }
+        let requestedSessionId = session.id
 
         conflictCheckTask?.cancel()
         conflictCheckTask = Task {
-            // Run conflict check on background thread to avoid blocking UI
-            let count = await Task.detached {
-                return await MainActor.run {
-                    dataManager.countConflicts(session: session)
-                }
-            }.value
+            let count = await dataManager.countConflicts(session: session)
 
             if !Task.isCancelled {
-                lastCheckedSessionId = session.id
-                conflictCount = count ?? 0
+                // Ignore stale completions when the user has already navigated
+                // to another session while this check was in flight.
+                let currentSessionId = selectionState.selectedSessionId ?? initialSession.id
+                guard currentSessionId == requestedSessionId else { return }
+
+                if let count {
+                    lastCheckedSessionId = requestedSessionId
+                    conflictCount = count
+                } else {
+                    // Unknown count (e.g., missing repo permission/path). Keep the
+                    // session eligible for a future retry once prerequisites are fixed.
+                    lastCheckedSessionId = nil
+                    conflictCount = 0
+                }
             }
         }
     }
@@ -120,17 +128,17 @@ struct SessionToolbarActionsView: View {
                 case .viewPR:
                     return session.outputs?.compactMap({ $0.pullRequest }).first != nil
                 case .localMerge:
-                    return session.latestDiffs != nil && !session.latestDiffs!.isEmpty
+                    return !(session.latestDiffs?.isEmpty ?? true)
                 }
             }
         )
 //        .sparkBorderCapsule(isActive: shouldShowSparkAnimation(for: session), lineWidth: 2)
-        .onChange(of: selectedAction) { _, newAction in
+        .onValueChange(of: selectedAction) { newAction in
             if newAction == .localMerge {
                 checkForConflicts(session: session)
             }
         }
-        .onChange(of: session.id) { _, _ in
+        .onValueChange(of: session.id) { _ in
             // Defer state updates to next run loop to prevent multiple updates per frame
             // when quickly paginating through sessions
             Task { @MainActor in
@@ -146,6 +154,10 @@ struct SessionToolbarActionsView: View {
             if selectedAction == .localMerge {
                 checkForConflicts(session: session)
             }
+        }
+        .onDisappear {
+            conflictCheckTask?.cancel()
+            conflictCheckTask = nil
         }
     }
 }
@@ -192,4 +204,3 @@ struct MergedButton: View {
         .frame(height: buttonHeight)
     }
 }
-

@@ -205,6 +205,7 @@ final class FSEventsWrapper {
 
         self.gitignorePatterns = patterns
         self.gitignoreLoaded = true
+        restartEventStreamIfWatching()
     }
 
     /// Load and parse .gitignore file
@@ -228,6 +229,17 @@ final class FSEventsWrapper {
     func reloadGitignore() {
         gitignorePatterns.removeAll()
         loadGitignore()
+        restartEventStreamIfWatching()
+    }
+
+    /// Recreate the event stream when ignore patterns change.
+    /// The FSEvents callback captures a snapshot of gitignore patterns at stream creation.
+    private func restartEventStreamIfWatching() {
+        guard isWatching,
+              let onFilesAdded,
+              let onFilesRemoved else { return }
+        stopWatching()
+        startWatching(onFilesAdded: onFilesAdded, onFilesRemoved: onFilesRemoved)
     }
 
     deinit {
@@ -258,8 +270,12 @@ final class FSEventsWrapper {
         self.onFilesAdded = onFilesAdded
         self.onFilesRemoved = onFilesRemoved
 
-        createEventStream()
-        isWatching = true
+        if createEventStream() {
+            isWatching = true
+        } else {
+            self.onFilesAdded = nil
+            self.onFilesRemoved = nil
+        }
     }
 
     /// Stop monitoring the directory
@@ -278,6 +294,8 @@ final class FSEventsWrapper {
 
         pendingAdditions.removeAll()
         pendingRemovals.removeAll()
+        onFilesAdded = nil
+        onFilesRemoved = nil
         isWatching = false
     }
 
@@ -361,7 +379,7 @@ final class FSEventsWrapper {
     ///   - isDirectory: Whether the path is a directory
     ///   - patterns: Gitignore patterns to check against
     /// - Returns: true if the path should be ignored
-    private static func shouldIgnorePath(_ relativePath: String, isDirectory: Bool, patterns: [GitignorePattern]) -> Bool {
+    nonisolated private static func shouldIgnorePath(_ relativePath: String, isDirectory: Bool, patterns: [GitignorePattern]) -> Bool {
         var isIgnored = false
 
         for pattern in patterns {
@@ -380,10 +398,9 @@ final class FSEventsWrapper {
 
     // MARK: - Private Methods
 
-    private func createEventStream() {
+    @discardableResult
+    private func createEventStream() -> Bool {
         let pathsToWatch = [directoryPath] as CFArray
-        let basePath = directoryPath
-        let patterns = gitignorePatterns
 
         // Create context with self reference
         var context = FSEventStreamContext(
@@ -416,12 +433,16 @@ final class FSEventsWrapper {
                 let basePath = wrapper.directoryPath
                 let patterns = wrapper.gitignorePatterns
 
-                let paths = unsafeBitCast(eventPaths, to: NSArray.self) as! [String]
+                let pathArray = unsafeBitCast(eventPaths, to: NSArray.self)
+                let paths = pathArray.compactMap { $0 as? String }
+                let eventCount = min(numEvents, paths.count)
+
+                guard eventCount > 0 else { return }
 
                 var addedFiles: Set<String> = []
                 var removedFiles: Set<String> = []
 
-                for i in 0..<numEvents {
+                for i in 0..<eventCount {
                     let absolutePath = paths[i]
                     let flags = eventFlags[i]
                     let event = FileEvent(path: absolutePath, flags: flags)
@@ -484,19 +505,25 @@ final class FSEventsWrapper {
             flags
         ) else {
             print("FSEventsWrapper: Failed to create event stream for \(directoryPath)")
-            return
+            return false
         }
 
         eventStream = stream
 
-        // Schedule on the main run loop
-        FSEventStreamScheduleWithRunLoop(
-            stream,
-            CFRunLoopGetMain(),
-            CFRunLoopMode.defaultMode.rawValue
-        )
+        // Use dispatch-queue scheduling (modern API) instead of run-loop scheduling.
+        FSEventStreamSetDispatchQueue(stream, DispatchQueue.main)
 
-        FSEventStreamStart(stream)
+        let started = FSEventStreamStart(stream)
+        guard started else {
+            print("FSEventsWrapper: Failed to start event stream for \(directoryPath)")
+            FSEventStreamStop(stream)
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+            eventStream = nil
+            return false
+        }
+
+        return true
     }
 
     private func handleFileChanges(added: Set<String>, removed: Set<String>) {
@@ -535,7 +562,7 @@ final class FSEventsWrapper {
     }
 
     /// Check if a filename should be ignored (build artifacts, dependencies, etc.)
-    private static func shouldIgnoreFile(_ filename: String) -> Bool {
+    nonisolated private static func shouldIgnoreFile(_ filename: String) -> Bool {
         // Common patterns to ignore
         let ignoredPrefixes = [".", "_"]
         let ignoredSuffixes = [".o", ".a", ".dylib", ".dSYM", ".pyc", ".class"]

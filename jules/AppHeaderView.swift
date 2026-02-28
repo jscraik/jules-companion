@@ -43,11 +43,21 @@ struct AppHeaderView: View {
                 }
                 .buttonStyle(.plain)
 
-                SettingsLink {
-                    Image(systemName: "gearshape.fill")
-                        .foregroundColor(AppColors.textSecondary)
+                if #available(macOS 14.0, *) {
+                    SettingsLink {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button(action: {
+                        NotificationCenter.default.post(name: .openSettings, object: nil)
+                    }) {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, horizontalPadding)
             .padding(.top, verticalPadding)

@@ -24,7 +24,7 @@ class OfflineSyncManager: ObservableObject {
 
     private var cancellables: Set<AnyCancellable> = []
 
-    init(dbQueue: DatabasePool, apiService: APIService, sourceRepository: SourceRepository, networkMonitor: NetworkMonitor = .shared) {
+    init(dbQueue: DatabasePool, apiService: APIService, sourceRepository: SourceRepository, networkMonitor: NetworkMonitor) {
         self.dbQueue = dbQueue
         self.apiService = apiService
         self.sourceRepository = sourceRepository
@@ -154,7 +154,7 @@ class OfflineSyncManager: ObservableObject {
 
                 if createdSession != nil {
                     // Remove from pending queue
-                    try await dbQueue.write { db in
+                    _ = try await dbQueue.write { db in
                         try PendingSession.deleteOne(db, key: pendingSession.id)
                     }
                     successCount += 1
@@ -194,7 +194,7 @@ class OfflineSyncManager: ObservableObject {
     /// Removes a pending session (e.g., if user cancels it)
     func removePendingSession(_ pendingSession: PendingSession) async {
         do {
-            try await dbQueue.write { db in
+            _ = try await dbQueue.write { db in
                 try PendingSession.deleteOne(db, key: pendingSession.id)
             }
             await refreshPendingCount()
@@ -206,7 +206,7 @@ class OfflineSyncManager: ObservableObject {
     /// Removes all pending sessions
     func clearAllPendingSessions() async {
         do {
-            try await dbQueue.write { db in
+            _ = try await dbQueue.write { db in
                 try PendingSession.deleteAll(db)
             }
             await refreshPendingCount()

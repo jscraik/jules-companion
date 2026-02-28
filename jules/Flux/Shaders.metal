@@ -393,7 +393,6 @@ kernel void update_fish(device FishParticle* particles [[buffer(0)]],
     // Boids Parameters
     float r_sep = 0.1;
     float r_align = 0.3;
-    float r_coh = 0.3;
 
     for (int i = 0; i < numFish; i++) {
         if (i == int(id)) continue;
@@ -646,9 +645,6 @@ fragment float4 diff_loader_fragment(DiffLoaderVertexOut in [[stage_in]],
     }
 
     // Wave Offset
-    float waveOffset = 0.0;
-    float waveLineAlpha = 0.0;
-
     // Calculate Wave
     float waveH = 0.0;
     for(int i=0; i<3; i++) {

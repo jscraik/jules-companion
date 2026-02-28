@@ -51,8 +51,41 @@ struct SearchableDropdownMenu<Item: Identifiable>: View where Item: Equatable {
         return min(max(0, selectedIndex), filteredItems.count - 1)
     }
 
+    @ViewBuilder
+    private func withKeyboardHandlers<Content: View>(_ content: Content) -> some View {
+        if #available(macOS 14.0, *) {
+            content
+                .onKeyPress(.downArrow) {
+                    let maxIndex = filteredItems.count - 1
+                    if maxIndex >= 0 && selectedIndex < maxIndex {
+                        selectedIndex += 1
+                    }
+                    return .handled
+                }
+                .onKeyPress(.upArrow) {
+                    if selectedIndex > 0 {
+                        selectedIndex -= 1
+                    }
+                    return .handled
+                }
+                .onKeyPress(.return) {
+                    if !filteredItems.isEmpty {
+                        onSelect(filteredItems[clampedSelectedIndex])
+                        onDismiss()
+                    }
+                    return .handled
+                }
+                .onKeyPress(.escape) {
+                    onDismiss()
+                    return .handled
+                }
+        } else {
+            content
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        withKeyboardHandlers(VStack(alignment: .leading, spacing: 0) {
             // Search field
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
@@ -94,7 +127,12 @@ struct SearchableDropdownMenu<Item: Identifiable>: View where Item: Equatable {
                             LazyVStack(alignment: .leading, spacing: 0) {
                                 ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
                                     // When searching with a custom searchableText, show that text to explain why items match
-                                    let showTitle = (!searchText.isEmpty && searchableText != nil) ? searchableText!(item) : displayName(item)
+                                    let showTitle = {
+                                        guard !searchText.isEmpty, let searchableText else {
+                                            return displayName(item)
+                                        }
+                                        return searchableText(item)
+                                    }()
                                     DropdownItemRow(
                                         title: showTitle,
                                         isSelected: selectedItem?.id == item.id,
@@ -111,7 +149,7 @@ struct SearchableDropdownMenu<Item: Identifiable>: View where Item: Equatable {
                     }
                     .scrollContentBackground(.hidden)
                     .scrollIndicators(.automatic)
-                    .onChange(of: clampedSelectedIndex) { newIndex in
+                    .onValueChange(of: clampedSelectedIndex) { newIndex in
                         // Scroll to the item's ID (not index) to match the .id(item.id) on rows
                         if newIndex < filteredItems.count {
                             withAnimation(.easeInOut(duration: 0.1)) {
@@ -169,33 +207,10 @@ struct SearchableDropdownMenu<Item: Identifiable>: View where Item: Equatable {
                 isSearchFocused = true
             }
         }
-        .onKeyPress(.downArrow) {
-            let maxIndex = filteredItems.count - 1
-            if maxIndex >= 0 && selectedIndex < maxIndex {
-                selectedIndex += 1
-            }
-            return .handled
-        }
-        .onKeyPress(.upArrow) {
-            if selectedIndex > 0 {
-                selectedIndex -= 1
-            }
-            return .handled
-        }
-        .onKeyPress(.return) {
-            if !filteredItems.isEmpty {
-                onSelect(filteredItems[clampedSelectedIndex])
-                onDismiss()
-            }
-            return .handled
-        }
-        .onKeyPress(.escape) {
-            onDismiss()
-            return .handled
-        }
-        .onChange(of: searchText) { _ in
+        .onValueChange(of: searchText) { _ in
             selectedIndex = 0
         }
+        )
     }
 }
 

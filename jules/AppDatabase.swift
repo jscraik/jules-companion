@@ -66,7 +66,30 @@ struct AppDatabase {
             try migrator.migrate(dbPool)
             return dbPool
         } catch {
-            fatalError("Unresolved error: \(error)")
+            // Fallback to in-memory DB to keep the app usable if disk DB init fails.
+            // This avoids a hard crash and allows recovery flows/settings access.
+            print("⚠️ AppDatabase disk initialization failed, falling back to in-memory DB: \(error)")
+            do {
+                let dbPool = try DatabasePool(path: ":memory:")
+                try migrator.migrate(dbPool)
+                return dbPool
+            } catch {
+                // Last-resort fallback: return an empty in-memory database without migrations.
+                // This keeps the app process alive so users can still access settings/recovery.
+                print("⚠️ AppDatabase in-memory migration failed, returning bare in-memory DB: \(error)")
+                if let bareInMemory = try? DatabasePool(path: ":memory:") {
+                    return bareInMemory
+                }
+
+                // Extremely unlikely final fallback:
+                // Construct a temporary file-backed DB if all in-memory attempts failed.
+                let tempPath = NSTemporaryDirectory().appending("/jules-fallback.sqlite")
+                if let tempPool = try? DatabasePool(path: tempPath) {
+                    return tempPool
+                }
+
+                fatalError("Unresolved database error (all fallback database creations failed)")
+            }
         }
     }
 

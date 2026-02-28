@@ -253,7 +253,7 @@ struct SimpleTextEditorContainer<BottomLeadingContent: View>: View, Equatable {
             // If displayedHeight is already non-zero and text exists, keep current height
             // (the contentHeight callback will adjust if needed)
         }
-        .onChange(of: contentHeight) { newHeight in
+        .onValueChange(of: contentHeight) { newHeight in
             let newEffectiveHeight = calculateEffectiveHeight(from: newHeight)
             if abs(newEffectiveHeight - displayedHeight) > 2 {
                 let now = Date()
@@ -269,7 +269,7 @@ struct SimpleTextEditorContainer<BottomLeadingContent: View>: View, Equatable {
                 }
             }
         }
-        .onChange(of: text) { newText in
+        .onValueChange(of: text) { newText in
             if newText.isEmpty && displayedHeight != minHeight {
                 withAnimation(.easeInOut(duration: 0.12)) {
                     displayedHeight = minHeight
@@ -1014,6 +1014,7 @@ struct SimpleTextEditor: NSViewRepresentable {
 
     // MARK: - Coordinator
 
+    @MainActor
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: SimpleTextEditor
         var onAttachment: ((String) -> Void)?
@@ -1188,9 +1189,11 @@ struct SimpleTextEditor: NSViewRepresentable {
 
             // Get the current word prefix for autocomplete
             let prefix = getCurrentWordPrefix(in: textView)
-            let hasValidPrefix = prefix != nil && prefix!.count >= 2
+            let hasValidPrefix = (prefix?.count ?? 0) >= 2
 
             if hasValidPrefix && shouldUpdateAutocomplete {
+                guard let prefix else { return }
+
                 // Get owner ID for this text input
                 let ownerId = ObjectIdentifier(textView)
 
@@ -1212,12 +1215,12 @@ struct SimpleTextEditor: NSViewRepresentable {
                 // This ensures refinement works even when onTextChange is nil (Tab-only mode)
                 if let onTextChange = self.onTextChange {
                     Task { @MainActor in
-                        onTextChange(prefix!)
+                        onTextChange(prefix)
                     }
                 } else if isAutocompleteActive {
                     // Menu is open but onTextChange is nil - update suggestions directly
                     Task { @MainActor in
-                        FilenameAutocompleteManager.shared.updateSuggestions(for: prefix!)
+                        FilenameAutocompleteManager.shared.updateSuggestions(for: prefix)
                     }
                 }
             } else if !hasValidPrefix && isAutocompleteActive {
@@ -1283,7 +1286,7 @@ struct SimpleTextEditor: NSViewRepresentable {
                 }
 
                 // Fallback: use the text view's layout manager usage rect for TextKit 2
-                if let textContainer = textLayoutManager.textContainer {
+                if textLayoutManager.textContainer != nil {
                     return textLayoutManager.usageBoundsForTextContainer.height
                 }
             }

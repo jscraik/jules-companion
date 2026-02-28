@@ -11,25 +11,31 @@ class SessionPollingController {
 
     // Single timer with 5-second base interval
     // Different operations run on different tick cycles:
-    // - Active sessions: every 2 ticks (10s)
+    // - Active sessions: every 3 ticks (15s)
     // - Backfill: every 6 ticks (30s)
     // - Completed sessions: every 12 ticks (60s)
     // - Stale session check: every 120 ticks (10 minutes)
     private static let baseInterval: TimeInterval = 5
-    private static let activeSessionsTicks = 2      // 10s
+    private static let activeSessionsTicks = 3      // 15s
     private static let backfillTicks = 6            // 30s
     private static let completedSessionsTicks = 12  // 60s
     private static let staleSessionCheckTicks = 120 // 10 minutes
     private static let initialBackfillTicks = 2     // 10s delay before first backfill
 
-    nonisolated(unsafe) private var unifiedTimer: Timer?
+    private var unifiedTimer: Timer?
     private var tickCount: Int = 0
     private var isPaused: Bool = false
     private var hasRunInitialBackfill: Bool = false
+    private var isTickInProgress: Bool = false
 
     init(sessionRepository: SessionRepository, dataManager: DataManager) {
         self.sessionRepository = sessionRepository
         self.dataManager = dataManager
+    }
+
+    deinit {
+        unifiedTimer?.invalidate()
+        unifiedTimer = nil
     }
 
     func startPolling() {
@@ -37,6 +43,7 @@ class SessionPollingController {
         tickCount = 0
         hasRunInitialBackfill = false
         isPaused = false
+        isTickInProgress = false
 
         // Single unified timer fires every 5 seconds
         unifiedTimer = Timer.scheduledTimer(withTimeInterval: Self.baseInterval, repeats: true) { [weak self] _ in
@@ -48,6 +55,10 @@ class SessionPollingController {
 
     private func onTick() async {
         guard !isPaused else { return }
+        guard !isTickInProgress else { return }
+
+        isTickInProgress = true
+        defer { isTickInProgress = false }
 
         tickCount += 1
 
@@ -86,7 +97,7 @@ class SessionPollingController {
         }
     }
 
-    nonisolated func stopPolling() {
+    func stopPolling() {
         unifiedTimer?.invalidate()
         unifiedTimer = nil
     }
@@ -106,11 +117,16 @@ class SessionPollingController {
         await sessionRepository.refresh()
 
         // Start with the top 5 active sessions
-        let topActiveSessions = dataManager.sessions.prefix(5).filter { !$0.state.isTerminal }
+        let topActiveSessions = dataManager.sessions.filter { !$0.state.isTerminal }.prefix(5)
         var idsToFetch = Set(topActiveSessions.map { $0.id })
 
-        // Always include the currently active session window, if it exists and is not already in the list
-        if let activeId = dataManager.activeSessionId, !idsToFetch.contains(activeId) {
+        // Include the currently viewed session when it still has useful server-side updates:
+        // - non-terminal sessions (state/progress can change), or
+        // - terminal sessions that still need stats backfill.
+        if let activeId = dataManager.activeSessionId,
+           !idsToFetch.contains(activeId),
+           let activeSession = dataManager.sessionsById[activeId],
+           (!activeSession.state.isTerminal || activeSession.needsActivityFetchForStats) {
             idsToFetch.insert(activeId)
         }
 
@@ -121,11 +137,14 @@ class SessionPollingController {
 
     private func pollCompletedSessions() async {
         guard let dataManager = dataManager else { return }
-        await sessionRepository.refresh()
-        // Only poll completed/completedUnknown sessions that still need stats (don't have cached git stats yet)
-        let completedSessions = dataManager.sessions.prefix(5).filter {
+        // No refresh here: on every completed-session tick (12), active polling
+        // also runs (12 is divisible by 3) and already performed a refresh.
+        // Avoiding a second refresh prevents duplicate API traffic.
+        // Only poll the top 5 completed/completedUnknown sessions that still need stats
+        // (don't have cached git stats yet).
+        let completedSessions = dataManager.sessions.filter {
             ($0.state == .completed || $0.state == .completedUnknown) && $0.needsActivityFetchForStats
-        }
+        }.prefix(5)
         let idsToFetch = completedSessions.map { $0.id }
         if !idsToFetch.isEmpty {
             await dataManager.fetchActivities(for: idsToFetch)

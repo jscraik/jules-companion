@@ -1,6 +1,7 @@
 import Foundation
 import Speech
-import AVFoundation
+@preconcurrency import AVFoundation
+@preconcurrency import AVFAudio
 import Combine
 import AppKit
 
@@ -288,18 +289,13 @@ final class SpeechTranscriptionManager: ObservableObject {
 
         // Install tap to capture audio and feed to analyzer
         // Use smaller buffer (512 samples ≈ 10ms at 48kHz) for lower latency word-by-word updates
-        do {
-            inputNode.installTap(onBus: 0, bufferSize: 512, format: inputFormat) { [weak self] buffer, _ in
-                guard let self = self else { return }
-                Task { @MainActor in
-                    self.processAudioBuffer(buffer)
-                }
+        inputNode.installTap(onBus: 0, bufferSize: 512, format: inputFormat) { [weak self] buffer, _ in
+            guard let self = self else { return }
+            Task { @MainActor in
+                self.processAudioBuffer(buffer)
             }
-            hasTapInstalled = true
-        } catch {
-            cleanupAudioResources()
-            throw SpeechTranscriptionError.audioEngineFailure(error)
         }
+        hasTapInstalled = true
 
         // Start audio engine
         do {
@@ -389,7 +385,12 @@ final class SpeechTranscriptionManager: ObservableObject {
         }
 
         cleanupAudioResources()
-        throw SpeechTranscriptionError.audioEngineFailure(lastError!)
+        let error = lastError ?? NSError(
+            domain: NSOSStatusErrorDomain,
+            code: -10877,
+            userInfo: [NSLocalizedDescriptionKey: "Audio input format remained invalid after retries"]
+        )
+        throw SpeechTranscriptionError.audioEngineFailure(error)
     }
 
     /// Process audio buffer and feed to SpeechAnalyzer

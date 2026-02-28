@@ -138,7 +138,7 @@ struct MergeConflictTestView: View {
         .onAppear {
             conflictCoordinator.update(text: testContent)
         }
-        .onChange(of: testContent) { newValue in
+        .onValueChange(of: testContent) { newValue in
             conflictCoordinator.update(text: newValue)
         }
     }
@@ -412,7 +412,7 @@ struct MergeConflictTestHostView: View {
 
     var body: some View {
         MergeConflictTestView(isShowingTest: $isShowingTest)
-            .onChange(of: isShowingTest) { newValue in
+            .onValueChange(of: isShowingTest) { newValue in
                 if !newValue {
                     onDismiss()
                 }
@@ -438,7 +438,7 @@ struct MergeConflictTestWrapper: View {
         Group {
             if isShowingTest {
                 MergeConflictTestView(isShowingTest: $localShowingTest)
-                    .onChange(of: localShowingTest) { newValue in
+                    .onValueChange(of: localShowingTest) { newValue in
                         if !newValue {
                             onDismiss()
                         }

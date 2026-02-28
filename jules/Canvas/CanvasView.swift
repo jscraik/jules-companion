@@ -39,7 +39,7 @@ struct CanvasView: View {
                 viewSize = geometry.size
                 fitImageToView(viewSize: geometry.size)
             }
-            .onChange(of: geometry.size) { newSize in
+            .onValueChange(of: geometry.size) { newSize in
                 viewSize = newSize
                 fitImageToView(viewSize: newSize)
             }
@@ -285,7 +285,7 @@ struct TextAnnotationView: View {
                 onDelete()
             }
         }
-        .onChange(of: isHovering) { hovering in
+        .onValueChange(of: isHovering) { hovering in
             updateCursor(hovering: hovering)
         }
     }

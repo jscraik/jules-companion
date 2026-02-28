@@ -131,7 +131,7 @@ struct SettingsView: View {
                                 .font(.system(size: 12, design: .monospaced))
                                 .foregroundColor(AppColors.textPrimary)
                                 .frame(maxWidth: 120)
-                                .onChange(of: apiKeyInput) { newValue in
+                                .onValueChange(of: apiKeyInput) { newValue in
                                     dataManager.apiKey = newValue
                                     // Preload sources so they're ready for the user
                                     if !newValue.isEmpty {
@@ -266,7 +266,7 @@ struct SettingsView: View {
                 .onAppear {
                     screenCaptureManager.updatePermissionStatus()
                 }
-                .onChange(of: screenCaptureManager.hasPermission) { _ in
+                .onValueChange(of: screenCaptureManager.hasPermission) { _ in
                     // Force UI refresh when permission changes
                 }
             }
@@ -561,9 +561,15 @@ struct SettingsView: View {
                         .font(.system(size: 10))
                         .foregroundColor(AppColors.textSecondary.opacity(0.6))
 
-                    Link("Kathy Korevec", destination: URL(string: "https://x.com/simpsoka")!)
-                        .font(.system(size: 10))
-                        .foregroundColor(AppColors.accent)
+                    if let authorURL = URL(string: "https://x.com/simpsoka") {
+                        Link("Kathy Korevec", destination: authorURL)
+                            .font(.system(size: 10))
+                            .foregroundColor(AppColors.accent)
+                    } else {
+                        Text("Kathy Korevec")
+                            .font(.system(size: 10))
+                            .foregroundColor(AppColors.accent)
+                    }
                 }
             }
             .frame(maxWidth: .infinity)

@@ -100,7 +100,7 @@ struct VoiceInputView: View {
         .onDisappear {
             cleanup()
         }
-        .onChange(of: speechManager.transcribedText) { _, newText in
+        .onValueChange(of: speechManager.transcribedText) { newText in
             // Cancel any pending processing task and debounce
             textProcessingTask?.cancel()
             textProcessingTask = Task { @MainActor in
@@ -185,7 +185,7 @@ struct VoiceInputView: View {
                         .id("transcribedText")
                 }
                 .frame(maxHeight: 200) // Cap maximum height to prevent excessive growth
-                .onChange(of: speechManager.transcribedText) { _, _ in
+                .onValueChange(of: speechManager.transcribedText) { _ in
                     // Auto-scroll to bottom as text grows
                     withAnimation(.easeOut(duration: 0.1)) {
                         proxy.scrollTo("transcribedText", anchor: .bottom)

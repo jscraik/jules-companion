@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Combine
 
 // MARK: - NSGlassEffectView Compatibility Shim
 
@@ -221,6 +222,44 @@ struct AdaptiveEffectView: View {
                 cornerRadius: cornerRadius
             )
         }
+    }
+}
+
+// MARK: - Backwards-Compatible onChange Helper
+
+private struct OnValueChangeModifier<Value: Equatable>: ViewModifier {
+    let value: Value
+    let action: (Value) -> Void
+
+    @State private var previousValue: Value?
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                if previousValue == nil {
+                    previousValue = value
+                }
+            }
+            .onReceive(Just(value)) { newValue in
+                guard let previous = previousValue else {
+                    previousValue = newValue
+                    return
+                }
+                guard previous != newValue else { return }
+                previousValue = newValue
+                action(newValue)
+            }
+    }
+}
+
+extension View {
+    /// Compatibility wrapper for value-change callbacks without relying on deprecated
+    /// SwiftUI `onChange(of:perform:)` overloads.
+    func onValueChange<Value: Equatable>(
+        of value: Value,
+        perform action: @escaping (Value) -> Void
+    ) -> some View {
+        modifier(OnValueChangeModifier(value: value, action: action))
     }
 }
 
@@ -511,10 +550,16 @@ func configureWindowWithGlassEffect(
         }
     } else {
         // On earlier versions, apply NSVisualEffectView to content view
-        let effectView = createAdaptiveEffectView(
+        guard let effectView = createAdaptiveEffectView(
             effectType: effectType,
             cornerRadius: cornerRadius
-        ) as! NSVisualEffectView
+        ) as? NSVisualEffectView else {
+            // Defensive fallback: if the adaptive factory changes implementation,
+            // avoid crashing and leave the existing content view untouched.
+            window.styleMask.insert(.fullSizeContentView)
+            window.titlebarAppearsTransparent = true
+            return
+        }
 
         // Store original content and wrap it
         if let originalContent = window.contentView {

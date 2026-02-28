@@ -621,8 +621,7 @@ final class ScrollDiagnostics {
         let now = CFAbsoluteTimeGetCurrent()
 
         // Detect rapid thumb position changes (jumping)
-        if !scrollbarThumbHistory.isEmpty {
-            let lastEntry = scrollbarThumbHistory.last!
+        if let lastEntry = scrollbarThumbHistory.last {
             let timeDelta = now - lastEntry.timestamp
             let ratioDelta = abs(thumbRatio - lastEntry.thumbRatio)
             let contentHeightDelta = abs(contentHeight - lastEntry.contentHeight)

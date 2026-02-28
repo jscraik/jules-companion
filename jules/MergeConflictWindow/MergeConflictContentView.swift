@@ -99,10 +99,10 @@ struct MergeConflictMetalEditorView: View {
             viewModel.language = languageString(from: file.language)
             viewModel.updateContent(file.content)
         }
-        .onChange(of: file.content) { newContent in
+        .onValueChange(of: file.content) { newContent in
             viewModel.updateContent(newContent)
         }
-        .onChange(of: file.id) { _ in
+        .onValueChange(of: file.id) { _ in
             viewModel.language = languageString(from: file.language)
             viewModel.updateContent(file.content)
         }
@@ -238,13 +238,17 @@ struct MergeConflictMetalScrollView: NSViewRepresentable {
                 object: scrollView.contentView,
                 queue: .main
             ) { [weak self] _ in
-                self?.handleScrollChange()
+                Task { @MainActor [weak self] in
+                    self?.handleScrollChange()
+                }
             }
 
             // Set initial viewport values after a brief delay to avoid updating during view setup
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
-                self?.handleScrollChange()
-                self?.updateButtons()
+                Task { @MainActor [weak self] in
+                    self?.handleScrollChange()
+                    self?.updateButtons()
+                }
             }
         }
 

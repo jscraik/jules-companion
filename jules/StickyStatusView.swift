@@ -108,7 +108,7 @@ struct StickyStatusView: View {
             guard needsFrequentTimeUpdates else { return }
             timeRefreshTrigger = Date()
         }
-        .onChange(of: session?.state) { _ in
+        .onValueChange(of: session?.state) { _ in
             // When session state changes, refresh the time display
             // For completed sessions, this captures the final updateTime
             timeRefreshTrigger = Date()
